@@ -7,6 +7,14 @@ secara realtime ke admin.
 Proyek ini adalah **klien mobile** dari backend Laravel di repo `Aplikasi-Monitoring`.
 Studi kasus skripsi, metode RAD.
 
+## Status Implementasi
+
+✅ Semua fitur inti (Fase 0–9) sudah diimplementasikan & build hijau (`app-debug.apk` terbentuk).
+Detail progres per fase ada di `RENCANA_IMPLEMENTASI.md`. Dokumen ini tetap menjadi
+acuan kontrak (API, struktur, konvensi) — bukan catatan progres.
+
+Sisa pekerjaan: pengujian end-to-end di perangkat dengan backend Laravel berjalan.
+
 ## Stack Teknologi
 
 | Layer | Teknologi |

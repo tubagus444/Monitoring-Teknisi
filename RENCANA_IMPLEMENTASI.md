@@ -185,11 +185,14 @@ sukses → `google-services.json` cocok dgn package `com.skynet.monitoring`.
 - [x] Fase 2 — Application & Manifest ✔️
 - [x] Fase 3 — Data layer ✔️
 - [x] Fase 4 — Repository ✔️ (compileDebugKotlin hijau)
+- [x] Fase 5 — Navigasi + Login ✔️ (APK hijau, layar Login bisa dijalankan)
+- [x] Fase 6 — Tasks list/detail/working ✔️ (compileDebugKotlin hijau)
+- [x] Fase 7 — LocationService (GPS foreground) ✔️ (APK hijau)
+- [x] Fase 8 — Notifikasi & Profil ✔️ (compileDebugKotlin hijau)
+- [x] Fase 9 — FCM (MonitoringFirebaseService + service di Manifest) ✔️ (assembleDebug/APK hijau)
+
+✅ **SEMUA FASE SELESAI.** App lengkap, `app-debug.apk` terbentuk. Sisa = pengujian end-to-end
+di perangkat (login → tugas → GPS → notif FCM → logout) dengan backend Laravel berjalan.
 
 > ⚠️ Build CLI: JANGAN `--no-daemon` (hang di kspDebugKotlin ~45 mnt). Pakai daemon biasa:
 > `.\gradlew.bat :app:compileDebugKotlin --console=plain` (verifikasi cepat ~20 dtk).
-- [ ] Fase 5 — Navigasi & Auth
-- [ ] Fase 6 — Tasks (list/detail/working)
-- [ ] Fase 7 — LocationService
-- [ ] Fase 8 — Notifikasi & Profil
-- [ ] Fase 9 — FCM
