@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.skynet.monitoring.ui.components.BrandLogo
 
 @Composable
 fun LoginScreen(
@@ -59,6 +60,8 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            BrandLogo(modifier = Modifier.padding(bottom = 20.dp))
+
             Text(
                 text = "SkyNet Monitoring",
                 style = MaterialTheme.typography.headlineMedium,

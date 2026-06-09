@@ -119,35 +119,41 @@ private fun DetailContent(
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
     ) {
-        // --- Info utama ---
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = task.customer,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            StatusBadge(task.status)
-        }
+        // --- Info utama (dikelompokkan dalam satu kartu) ---
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = task.customer,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    StatusBadge(task.status)
+                }
 
-        InfoRow(label = "Jenis Kerusakan", value = task.damageType)
-        InfoRow(label = "Alamat", value = task.address)
-        InfoRow(label = "Catatan", value = task.notes ?: "-")
-        InfoRow(label = "Ditugaskan", value = DateUtils.format(task.assignedAt))
+                InfoRow(label = "Jenis Kerusakan", value = task.damageType)
+                InfoRow(label = "Alamat", value = task.address)
+                InfoRow(label = "Catatan", value = task.notes ?: "-")
+                InfoRow(label = "Ditugaskan", value = DateUtils.format(task.assignedAt))
 
-        OutlinedButton(
-            onClick = {
-                val uri = Uri.parse("geo:0,0?q=${Uri.encode(task.address)}")
-                val intent = Intent(Intent.ACTION_VIEW, uri)
-                runCatching { context.startActivity(intent) }
-            },
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-            Text("Buka di Google Maps")
+                OutlinedButton(
+                    onClick = {
+                        val uri = Uri.parse("geo:0,0?q=${Uri.encode(task.address)}")
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        runCatching { context.startActivity(intent) }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                ) {
+                    Icon(Icons.Filled.Map, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Buka di Google Maps")
+                }
+            }
         }
 
         // --- Timeline work logs ---
