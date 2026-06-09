@@ -1,0 +1,6 @@
+﻿# Normalkan akhir baris ke LF di repo — hilangkan warning CRLF di Windows
+# dan jaga konsistensi untuk siapa pun yang clone.
+* text=auto eol=lf
+
+# Skrip batch Windows wajib CRLF.
+*.bat text eol=crlf
