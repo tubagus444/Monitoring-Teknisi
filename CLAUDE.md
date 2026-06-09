@@ -325,7 +325,7 @@ Response 200: { "message": "Notifikasi ditandai sudah dibaca" }
 | # | Layar | Route | Keterangan |
 |---|---|---|---|
 | 1 | Login | `login` | Form email + password. Simpan token ke DataStore. Kirim FCM token setelah login berhasil. |
-| 2 | Daftar Tugas | `tasks` | List tugas aktif. Tab utama bottom navigation. Pull-to-refresh. |
+| 2 | Daftar Tugas | `tasks` | List tugas aktif. Tab utama bottom navigation. Pull-to-refresh + auto-refresh tiap `ON_RESUME` (agar tugas baru muncul tanpa restart app). |
 | 3 | Detail Tugas | `tasks/{id}` | Info lengkap, timeline work logs, tombol "Mulai Memperbaiki" / "Selesai". |
 | 4 | Sedang Memperbaiki | `tasks/{id}/working` | Layar aktif saat GPS berjalan. Tampilkan nama pelanggan, alamat, timer durasi, status live. Tombol "Tandai Selesai". |
 | 5 | Notifikasi | `notifications` | Daftar notifikasi terbaru, indikator belum-baca. Tap → tandai dibaca. |
@@ -357,8 +357,13 @@ Permission yang wajib dideklarasikan di `AndroidManifest.xml`:
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-Runtime permission harus diminta sebelum memulai service: `ACCESS_FINE_LOCATION` (semua versi)
-dan `POST_NOTIFICATIONS` (Android 13+).
+Runtime permission `ACCESS_FINE_LOCATION` (semua versi) diminta sebelum memulai service —
+yaitu di layar Working sebelum `LocationService.start()`.
+
+> **`POST_NOTIFICATIONS` (Android 13+) TIDAK menunggu GPS.** Izin ini diminta lebih awal saat
+> teknisi masuk **Daftar Tugas** (`TaskListScreen`), supaya notifikasi FCM tugas baru bisa
+> tampil walau teknisi belum pernah membuka layar Working. Bila izin ini belum diberikan,
+> `NotificationManager.notify()` menjadi no-op diam-diam di Android 13+ — notifikasi senyap.
 
 ## Firebase FCM
 
