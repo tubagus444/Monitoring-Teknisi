@@ -3,6 +3,7 @@ package com.skynet.monitoring.ui.screens.profile
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,25 +12,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +52,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Profil") }) },
+        topBar = { CenterAlignedTopAppBar(title = { Text("Profil") }) },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -57,18 +63,18 @@ fun ProfileScreen(
         ) {
             Spacer(Modifier.size(16.dp))
 
-            // Avatar inisial / ikon.
+            // Avatar inisial dari nama teknisi (mis. "Budi Santoso" → "BS").
             Surface(
                 modifier = Modifier.size(96.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Filled.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    Text(
+                        text = initialsOf(user?.name),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
             }
@@ -80,15 +86,28 @@ fun ProfileScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = user?.email ?: "-",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             Spacer(Modifier.size(24.dp))
 
-            InfoRow(label = "Peran", value = user?.role ?: "teknisi")
+            // Satu kartu info: Email + Peran, dipisah garis tipis.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                InfoRow(
+                    icon = Icons.Filled.Email,
+                    label = "Email",
+                    value = user?.email ?: "-",
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                )
+                InfoRow(
+                    icon = Icons.Filled.Badge,
+                    label = "Peran",
+                    value = (user?.role ?: "teknisi").replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                    },
+                )
+            }
 
             Spacer(Modifier.weight(1f))
 
@@ -114,19 +133,46 @@ fun ProfileScreen(
                     Text("Logout")
                 }
             }
+
+            Spacer(Modifier.size(16.dp))
+
+            // Footer branding SkyNet.
+            Text(
+                text = "SkyNet RT/RW Net • Kab. Bekasi",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
 
+/** Ambil maksimal dua inisial dari nama; fallback "?" bila nama kosong. */
+private fun initialsOf(name: String?): String {
+    val parts = name?.trim()?.split(Regex("\\s+"))?.filter { it.isNotBlank() }.orEmpty()
+    return when {
+        parts.isEmpty() -> "?"
+        parts.size == 1 -> parts[0].take(1).uppercase(Locale.getDefault())
+        else -> (parts.first().take(1) + parts.last().take(1)).uppercase(Locale.getDefault())
+    }
+}
+
 @Composable
-private fun InfoRow(label: String, value: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
+private fun InfoRow(icon: ImageVector, label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
