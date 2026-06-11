@@ -56,20 +56,14 @@ fun TaskDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isUpdating by viewModel.isUpdating.collectAsStateWithLifecycle()
-    val repairStarted by viewModel.repairStarted.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(repairStarted) {
-        if (repairStarted) {
-            viewModel.consumeRepairStarted()
-            onNavigateToWorking(viewModel.taskId)
-        }
-    }
-    LaunchedEffect(error) {
-        error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.consumeError()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                TaskDetailEvent.RepairStarted -> onNavigateToWorking(viewModel.taskId)
+                is TaskDetailEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
+            }
         }
     }
 

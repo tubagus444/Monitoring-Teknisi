@@ -1,11 +1,12 @@
 package com.skynet.monitoring.ui.screens.tasks
 
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.repository.TaskRepository
+import com.skynet.monitoring.ui.BaseViewModel
 import com.skynet.monitoring.util.UiState
+import com.skynet.monitoring.util.collectResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,11 +14,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** Event sekali-pakai layar Detail Tugas. */
+sealed interface TaskDetailEvent {
+    /** Status berhasil diubah ke in_progress → navigasi ke layar Working. */
+    data object RepairStarted : TaskDetailEvent
+    data class ShowError(val message: String) : TaskDetailEvent
+}
+
 @HiltViewModel
 class TaskDetailViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     savedStateHandle: SavedStateHandle,
-) : ViewModel() {
+) : BaseViewModel<TaskDetailEvent>() {
 
     val taskId: Int = checkNotNull(savedStateHandle["id"])
 
@@ -27,25 +35,11 @@ class TaskDetailViewModel @Inject constructor(
     private val _isUpdating = MutableStateFlow(false)
     val isUpdating: StateFlow<Boolean> = _isUpdating.asStateFlow()
 
-    /** Event sekali-pakai: berhasil ubah ke in_progress → navigasi ke layar Working. */
-    private val _repairStarted = MutableStateFlow(false)
-    val repairStarted: StateFlow<Boolean> = _repairStarted.asStateFlow()
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-
     init {
         load()
     }
 
-    fun load() {
-        viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            taskRepository.getTaskDetail(taskId)
-                .onSuccess { _uiState.value = UiState.Success(it) }
-                .onFailure { _uiState.value = UiState.Error(it.message ?: "Gagal memuat detail tugas") }
-        }
-    }
+    fun load() = _uiState.collectResult(viewModelScope) { taskRepository.getTaskDetail(taskId) }
 
     /** Tombol "Mulai Memperbaiki": kirim in_progress lalu picu navigasi ke Working. */
     fun startRepair() {
@@ -54,13 +48,10 @@ class TaskDetailViewModel @Inject constructor(
             taskRepository.updateStatus(taskId, "in_progress")
                 .onSuccess {
                     // Navigasi ke Working; LocationService di-start di sana setelah izin lokasi.
-                    _repairStarted.value = true
+                    emitEvent(TaskDetailEvent.RepairStarted)
                 }
-                .onFailure { _error.value = it.message ?: "Gagal memulai perbaikan" }
+                .onFailure { emitEvent(TaskDetailEvent.ShowError(it.message ?: "Gagal memulai perbaikan")) }
             _isUpdating.value = false
         }
     }
-
-    fun consumeRepairStarted() { _repairStarted.value = false }
-    fun consumeError() { _error.value = null }
 }
