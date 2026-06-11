@@ -30,6 +30,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,13 +69,13 @@ fun WorkingScreen(
     ) { result ->
         permissionGranted = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
     }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         if (!permissionGranted) permissionLauncher.launch(requiredPermissions())
     }
 
     // Mulai LocationService saat task termuat & permission diberikan.
     val reportId = (taskState as? UiState.Success)?.data?.reportId
-    androidx.compose.runtime.LaunchedEffect(reportId, permissionGranted) {
+    LaunchedEffect(reportId, permissionGranted) {
         if (reportId != null && reportId > 0 && permissionGranted) {
             LocationService.start(context, reportId)
         } else if (reportId != null && !permissionGranted) {
@@ -82,13 +83,13 @@ fun WorkingScreen(
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(finished) {
+    LaunchedEffect(finished) {
         if (finished) {
             LocationService.stop(context)
             onFinished()
         }
     }
-    androidx.compose.runtime.LaunchedEffect(error) {
+    LaunchedEffect(error) {
         error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.consumeError()

@@ -53,7 +53,7 @@ class TaskDetailViewModel @Inject constructor(
             _isUpdating.value = true
             taskRepository.updateStatus(taskId, "in_progress")
                 .onSuccess {
-                    // TODO(Fase 7): start LocationService di sini.
+                    // Navigasi ke Working; LocationService di-start di sana setelah izin lokasi.
                     _repairStarted.value = true
                 }
                 .onFailure { _error.value = it.message ?: "Gagal memulai perbaikan" }

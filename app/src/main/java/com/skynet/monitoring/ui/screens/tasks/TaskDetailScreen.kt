@@ -29,6 +29,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -59,13 +60,13 @@ fun TaskDetailScreen(
     val error by viewModel.error.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    androidx.compose.runtime.LaunchedEffect(repairStarted) {
+    LaunchedEffect(repairStarted) {
         if (repairStarted) {
             viewModel.consumeRepairStarted()
             onNavigateToWorking(viewModel.taskId)
         }
     }
-    androidx.compose.runtime.LaunchedEffect(error) {
+    LaunchedEffect(error) {
         error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.consumeError()
