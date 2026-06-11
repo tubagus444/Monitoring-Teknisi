@@ -57,8 +57,6 @@ fun WorkingScreen(
     val taskState by viewModel.task.collectAsStateWithLifecycle()
     val elapsed by viewModel.elapsedSeconds.collectAsStateWithLifecycle()
     val isFinishing by viewModel.isFinishing.collectAsStateWithLifecycle()
-    val finished by viewModel.finished.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -83,16 +81,15 @@ fun WorkingScreen(
         }
     }
 
-    LaunchedEffect(finished) {
-        if (finished) {
-            LocationService.stop(context)
-            onFinished()
-        }
-    }
-    LaunchedEffect(error) {
-        error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.consumeError()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                WorkingEvent.Finished -> {
+                    LocationService.stop(context)
+                    onFinished()
+                }
+                is WorkingEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
+            }
         }
     }
 
