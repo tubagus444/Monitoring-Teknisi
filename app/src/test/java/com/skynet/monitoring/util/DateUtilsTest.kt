@@ -28,4 +28,13 @@ class DateUtilsTest {
         assertNotEquals(input, out)
         assertTrue("hasil tak terduga: $out", Regex("""\d{2} \S{3} \d{4}, \d{2}:\d{2}""").matches(out))
     }
+
+    @Test
+    fun `toIso8601 menghasilkan format ISO-8601 dengan offset zona`() {
+        val out = DateUtils.toIso8601(0L)
+        assertTrue(
+            "hasil tak terduga: $out",
+            Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}""").matches(out),
+        )
+    }
 }

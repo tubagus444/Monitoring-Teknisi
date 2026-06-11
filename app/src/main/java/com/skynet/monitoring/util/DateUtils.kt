@@ -1,6 +1,7 @@
 package com.skynet.monitoring.util
 
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 /**
@@ -20,4 +21,12 @@ object DateUtils {
             iso
         }
     }
+
+    /**
+     * Waktu epoch (millis UTC) → ISO-8601 dengan offset zona device, mis.
+     * "2026-06-11T14:05:30+07:00". Dipakai LocationService untuk `recorded_at` (waktu fix GPS).
+     * SimpleDateFormat dibuat per panggilan agar aman dipakai lintas thread (IO).
+     */
+    fun toIso8601(epochMillis: Long): String =
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date(epochMillis))
 }

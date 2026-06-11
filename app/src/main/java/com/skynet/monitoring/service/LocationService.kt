@@ -20,6 +20,7 @@ import com.google.android.gms.location.Priority
 import com.skynet.monitoring.data.repository.LocationRepository
 import com.skynet.monitoring.util.ApiException
 import com.skynet.monitoring.util.Constants
+import com.skynet.monitoring.util.DateUtils
 import com.skynet.monitoring.util.NotificationChannels
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -27,9 +28,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -89,7 +87,7 @@ class LocationService : Service() {
                 val location = result.lastLocation ?: return
                 if (reportId > 0) {
                     // recorded_at diambil dari waktu fix GPS (location.time), bukan waktu kirim.
-                    val recordedAt = formatRecordedAt(location.time)
+                    val recordedAt = DateUtils.toIso8601(location.time)
                     scope.launch {
                         locationRepository.sendLocation(
                             reportId = reportId,
@@ -108,14 +106,6 @@ class LocationService : Service() {
         // Permission sudah dipastikan granted oleh WorkingScreen sebelum start.
         fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
     }
-
-    /**
-     * Waktu fix GPS (epoch millis UTC) → ISO-8601 dengan offset zona device,
-     * mis. "2026-06-11T14:05:30+07:00". SimpleDateFormat dipakai agar kompatibel minSdk 24
-     * tanpa core library desugaring (selaras dengan [com.skynet.monitoring.util.DateUtils]).
-     */
-    private fun formatRecordedAt(epochMillis: Long): String =
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date(epochMillis))
 
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, NotificationChannels.GPS_CHANNEL_ID)
