@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.skynet.monitoring.data.api.model.NotificationItem
 import com.skynet.monitoring.data.repository.NotificationRepository
 import com.skynet.monitoring.util.UiState
+import com.skynet.monitoring.util.collectResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,28 +28,10 @@ class NotificationViewModel @Inject constructor(
         load()
     }
 
-    fun load() {
-        viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            notificationRepository.getNotifications()
-                .onSuccess { _uiState.value = UiState.Success(it) }
-                .onFailure { _uiState.value = UiState.Error(it.message ?: "Gagal memuat notifikasi") }
-        }
-    }
+    fun load() = _uiState.collectResult(viewModelScope) { notificationRepository.getNotifications() }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _isRefreshing.value = true
-            notificationRepository.getNotifications()
-                .onSuccess { _uiState.value = UiState.Success(it) }
-                .onFailure {
-                    if (_uiState.value !is UiState.Success) {
-                        _uiState.value = UiState.Error(it.message ?: "Gagal memuat notifikasi")
-                    }
-                }
-            _isRefreshing.value = false
-        }
-    }
+    fun refresh() =
+        _uiState.collectResult(viewModelScope, _isRefreshing) { notificationRepository.getNotifications() }
 
     /** Tandai dibaca. Optimistic: langsung update list lokal, lalu sinkron ke server. */
     fun markRead(id: Int) {

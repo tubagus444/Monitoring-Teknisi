@@ -5,11 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.repository.TaskRepository
 import com.skynet.monitoring.util.UiState
+import com.skynet.monitoring.util.collectResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,27 +27,7 @@ class TaskListViewModel @Inject constructor(
         load()
     }
 
-    fun load() {
-        viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            taskRepository.getTasks()
-                .onSuccess { _uiState.value = UiState.Success(it) }
-                .onFailure { _uiState.value = UiState.Error(it.message ?: "Gagal memuat tugas") }
-        }
-    }
+    fun load() = _uiState.collectResult(viewModelScope) { taskRepository.getTasks() }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _isRefreshing.value = true
-            taskRepository.getTasks()
-                .onSuccess { _uiState.value = UiState.Success(it) }
-                .onFailure {
-                    // Pertahankan data lama bila sudah ada; tampilkan error hanya bila belum ada data.
-                    if (_uiState.value !is UiState.Success) {
-                        _uiState.value = UiState.Error(it.message ?: "Gagal memuat tugas")
-                    }
-                }
-            _isRefreshing.value = false
-        }
-    }
+    fun refresh() = _uiState.collectResult(viewModelScope, _isRefreshing) { taskRepository.getTasks() }
 }
