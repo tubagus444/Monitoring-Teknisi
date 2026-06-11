@@ -267,7 +267,7 @@ Response 422: { "message": "Perubahan status tidak valid dari status saat ini" }
 **Kirim Koordinat Lokasi**
 ```
 POST /api/location
-Body: { "report_id": 5, "latitude": -6.2631, "longitude": 107.0059 }
+Body: { "report_id": 5, "latitude": -6.2631, "longitude": 107.0059, "recorded_at": "2026-06-10T14:05:30+07:00" }
 
 Response 200: { "message": "Lokasi dicatat" }
 Response 403: { "message": "Tidak dapat mengirim lokasi — laporan tidak aktif atau bukan tugas Anda" }
@@ -275,6 +275,11 @@ Response 403: { "message": "Tidak dapat mengirim lokasi — laporan tidak aktif 
 
 Backend hanya menerima koordinat jika status laporan `sedang_memperbaiki` dan `report_id`
 memang milik teknisi yang sedang login. Gunakan `report_id` (bukan `task id`) saat kirim.
+
+> **`recorded_at` (opsional, ISO-8601 + offset zona).** Diisi dari **waktu fix GPS sebenarnya**
+> (`location.time`), bukan waktu kirim — agar akurat walau sinyal teknisi lemah/tertunda. App
+> memformatnya via `SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX")` (kompatibel minSdk 24, tanpa
+> desugaring). Backward-compatible: bila tidak dikirim, server pakai waktu terima.
 
 ---
 
@@ -340,11 +345,23 @@ Response 200: { "message": "Notifikasi ditandai sudah dibaca" }
 
 `LocationService` berjalan sepanjang teknisi berstatus `sedang_memperbaiki`:
 
-- **Start**: dipanggil dari `WorkingViewModel` setelah status berhasil diubah ke `in_progress`
+- **Start**: `LocationService.start()` dipanggil dari `WorkingScreen` (di `LaunchedEffect`) setelah
+  task termuat & izin lokasi diberikan. Status sudah `in_progress` — diubah di
+  `TaskDetailViewModel.startRepair` sebelum navigasi ke layar Working.
 - **Interval**: kirim lokasi setiap **15 detik** via `FusedLocationProviderClient`
   (web admin polling peta tiap 10 detik — 15s adalah kompromi antara realtime & hemat baterai)
-- **Payload**: POST ke `/api/location` dengan `report_id` tugas aktif
-- **Stop**: dipanggil dari `WorkingViewModel` setelah status berhasil diubah ke `done`
+- **Akurasi & hemat baterai**: `LocationRequest` pakai `PRIORITY_BALANCED_POWER_ACCURACY`
+  (~100 m, cukup untuk peta admin — JANGAN `HIGH_ACCURACY`, paling boros), interval 15 dtk /
+  tercepat 10 dtk (`setMinUpdateIntervalMillis`), dan **displacement 15 m**
+  (`setMinUpdateDistanceMeters`). Konsekuensi penting: **saat teknisi diam, lokasi TIDAK dikirim**
+  (di bawah ambang 15 m → GMS menahan delivery) — ini disengaja untuk hemat baterai, bukan bug.
+  Konstanta ada di `util/Constants.kt` (`LOCATION_INTERVAL_MS`, `LOCATION_FASTEST_INTERVAL_MS`,
+  `LOCATION_MIN_DISPLACEMENT_M`).
+- **Payload**: POST ke `/api/location` dengan `report_id` tugas aktif (+ `recorded_at` dari waktu fix GPS)
+- **Stop**: `LocationService.stop()` dipanggil dari `WorkingScreen` setelah
+  `WorkingViewModel.finishRepair()` berhasil mengubah status ke `done` (`finished = true`). Selain itu,
+  bila server membalas **403** (laporan tidak aktif / bukan tugas ini), service **berhenti sendiri**
+  (`stopSelf()` di callback) — pengiriman GPS dihentikan total tanpa menunggu aksi user.
 - **Persistent notification** wajib ditampilkan selama service aktif (requirement Android 8+):
   contoh teks: "SkyNet — GPS aktif • Sedang memperbaiki"
 

@@ -7,8 +7,16 @@ import com.skynet.monitoring.util.safeApiCall
 import javax.inject.Inject
 
 interface LocationRepository {
-    /** Kirim koordinat. Gunakan report_id (bukan task id). */
-    suspend fun sendLocation(reportId: Int, latitude: Double, longitude: Double): Result<Unit>
+    /**
+     * Kirim koordinat. Gunakan report_id (bukan task id).
+     * [recordedAt] = waktu fix GPS (ISO-8601 + offset zona); null → server pakai waktu terima.
+     */
+    suspend fun sendLocation(
+        reportId: Int,
+        latitude: Double,
+        longitude: Double,
+        recordedAt: String? = null,
+    ): Result<Unit>
 }
 
 class LocationRepositoryImpl @Inject constructor(
@@ -20,8 +28,9 @@ class LocationRepositoryImpl @Inject constructor(
         reportId: Int,
         latitude: Double,
         longitude: Double,
+        recordedAt: String?,
     ): Result<Unit> =
         safeApiCall(gson) {
-            api.sendLocation(LocationRequest(reportId, latitude, longitude))
+            api.sendLocation(LocationRequest(reportId, latitude, longitude, recordedAt))
         }.map { }
 }

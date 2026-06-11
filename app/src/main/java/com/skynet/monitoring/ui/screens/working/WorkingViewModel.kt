@@ -40,7 +40,7 @@ class WorkingViewModel @Inject constructor(
     init {
         load()
         startTimer()
-        // TODO(Fase 7): pastikan LocationService berjalan (status sudah sedang_memperbaiki).
+        // LocationService di-start oleh WorkingScreen saat task termuat & izin lokasi granted.
     }
 
     private fun load() {
@@ -66,7 +66,7 @@ class WorkingViewModel @Inject constructor(
             _isFinishing.value = true
             taskRepository.updateStatus(taskId, "done")
                 .onSuccess {
-                    // TODO(Fase 7): stop LocationService di sini.
+                    // Stop LocationService ditangani WorkingScreen yang mengobservasi `finished`.
                     _finished.value = true
                 }
                 .onFailure { _error.value = it.message ?: "Gagal menyelesaikan tugas" }
