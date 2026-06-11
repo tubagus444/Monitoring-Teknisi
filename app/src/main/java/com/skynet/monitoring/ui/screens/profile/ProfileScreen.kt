@@ -46,10 +46,13 @@ fun ProfileScreen(
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
     val isLoggingOut by viewModel.isLoggingOut.collectAsStateWithLifecycle()
-    val loggedOut by viewModel.loggedOut.collectAsStateWithLifecycle()
 
-    LaunchedEffect(loggedOut) {
-        if (loggedOut) onLoggedOut()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                ProfileEvent.LoggedOut -> onLoggedOut()
+            }
+        }
     }
 
     Scaffold(
