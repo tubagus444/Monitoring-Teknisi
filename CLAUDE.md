@@ -480,3 +480,22 @@ Snackbar. HTTP status yang relevan:
 - Inject `Context` via `@ApplicationContext` dari Hilt — jangan pegang referensi Activity
 - Naming: `*Screen.kt` (Composable root), `*ViewModel.kt`, `*Repository.kt`
 - Hindari logic di Composable — semua logic di ViewModel
+- **Event sekali-pakai** (navigasi, Snackbar) lewat `BaseViewModel<E>` (`ui/BaseViewModel.kt`) +
+  `events: Flow<E>`; Composable mengonsumsi via `LaunchedEffect(Unit) { vm.events.collect { … } }`.
+  Jangan pakai `MutableStateFlow<Boolean>` + `consumeX()` (rawan ter-trigger ganda saat recomposition).
+- **Pemuatan data** ke `UiState` lewat helper `collectResult()` (`util/UiStateLoader.kt`) untuk pola
+  `load()`/`refresh()` (termasuk "pertahankan data lama saat error") — jangan tulis ulang manual.
+- Format ISO-8601 (`recorded_at` GPS & tampilan tanggal) terpusat di `util/DateUtils.kt`
+  (`toIso8601`, `format`).
+
+## Pengujian
+
+Unit test (host JVM, di `app/src/test/`) memakai JUnit4 + `kotlinx-coroutines-test` + **mockk**
+(mock repository/`ApiService`) + **turbine** (assert `Flow`/`events`). `MainDispatcherRule`
+(`util/MainDispatcherRule.kt`) mengganti `Dispatchers.Main` dengan `TestDispatcher`.
+
+- Jalankan: `.\gradlew.bat :app:testDebugUnitTest --console=plain`.
+- Uji ViewModel: `runTest(mainDispatcherRule.dispatcher) { … }` agar scheduler dibagi dengan
+  `viewModelScope`; uji `events` dengan turbine; panggil `vm.viewModelScope.cancel()` di `finally`
+  bila VM punya coroutine menetap (timer / `stateIn`), supaya `runTest` selesai bersih.
+- Cakupan saat ini: semua repository + `safeApiCall` + `DateUtils` + semua ViewModel (46 test).
