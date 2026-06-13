@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skynet.monitoring.data.api.model.Task
+import com.skynet.monitoring.data.api.model.TaskStatus
 import com.skynet.monitoring.data.api.model.WorkLog
 import com.skynet.monitoring.ui.components.ErrorView
 import com.skynet.monitoring.ui.components.LoadingView
@@ -172,8 +173,8 @@ private fun DetailContent(
         }
 
         // --- Tombol aksi ---
-        when (task.status) {
-            "ditugaskan" -> Button(
+        when (TaskStatus.from(task.status)) {
+            TaskStatus.ASSIGNED -> Button(
                 onClick = onStartRepair,
                 enabled = !isUpdating,
                 modifier = Modifier
@@ -193,7 +194,7 @@ private fun DetailContent(
                 }
             }
 
-            "sedang_memperbaiki" -> Button(
+            TaskStatus.IN_PROGRESS -> Button(
                 onClick = onContinueRepair,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,6 +202,9 @@ private fun DetailContent(
             ) {
                 Text("Lanjutkan Perbaikan")
             }
+
+            // DONE / status tak dikenal → tugas tak muncul di list aktif, tak ada tombol aksi.
+            else -> Unit
         }
     }
 }

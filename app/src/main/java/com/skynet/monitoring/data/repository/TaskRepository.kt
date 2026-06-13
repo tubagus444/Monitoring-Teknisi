@@ -2,6 +2,7 @@ package com.skynet.monitoring.data.repository
 
 import com.google.gson.Gson
 import com.skynet.monitoring.data.api.ApiService
+import com.skynet.monitoring.data.api.model.StatusAction
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.api.model.UpdateStatusRequest
 import com.skynet.monitoring.util.safeApiCall
@@ -12,10 +13,10 @@ interface TaskRepository {
     suspend fun getTaskDetail(id: Int): Result<Task>
 
     /**
-     * Update status tugas. [status] = "in_progress" atau "done".
+     * Update status tugas dengan [action] ([StatusAction.START] / [StatusAction.FINISH]).
      * Mengembalikan status hasil dari backend (mis. "sedang_memperbaiki").
      */
-    suspend fun updateStatus(id: Int, status: String): Result<String>
+    suspend fun updateStatus(id: Int, action: StatusAction): Result<String>
 }
 
 class TaskRepositoryImpl @Inject constructor(
@@ -29,7 +30,7 @@ class TaskRepositoryImpl @Inject constructor(
     override suspend fun getTaskDetail(id: Int): Result<Task> =
         safeApiCall(gson) { api.getTaskDetail(id) }.map { it.data }
 
-    override suspend fun updateStatus(id: Int, status: String): Result<String> =
-        safeApiCall(gson) { api.updateTaskStatus(id, UpdateStatusRequest(status)) }
-            .map { it.status ?: status }
+    override suspend fun updateStatus(id: Int, action: StatusAction): Result<String> =
+        safeApiCall(gson) { api.updateTaskStatus(id, UpdateStatusRequest(action.apiValue)) }
+            .map { it.status ?: action.apiValue }
 }

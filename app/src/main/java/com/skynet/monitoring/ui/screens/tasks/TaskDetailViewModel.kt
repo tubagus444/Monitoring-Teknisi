@@ -2,6 +2,7 @@ package com.skynet.monitoring.ui.screens.tasks
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.skynet.monitoring.data.api.model.StatusAction
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.repository.TaskRepository
 import com.skynet.monitoring.ui.BaseViewModel
@@ -45,7 +46,7 @@ class TaskDetailViewModel @Inject constructor(
     fun startRepair() {
         viewModelScope.launch {
             _isUpdating.value = true
-            taskRepository.updateStatus(taskId, "in_progress")
+            taskRepository.updateStatus(taskId, StatusAction.START)
                 .onSuccess {
                     // Navigasi ke Working; LocationService di-start di sana setelah izin lokasi.
                     emitEvent(TaskDetailEvent.RepairStarted)

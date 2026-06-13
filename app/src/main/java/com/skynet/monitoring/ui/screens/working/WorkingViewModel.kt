@@ -2,16 +2,20 @@ package com.skynet.monitoring.ui.screens.working
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.skynet.monitoring.data.api.model.StatusAction
 import com.skynet.monitoring.data.api.model.Task
+import com.skynet.monitoring.data.api.model.TaskStatus
 import com.skynet.monitoring.data.repository.TaskRepository
 import com.skynet.monitoring.ui.BaseViewModel
+import com.skynet.monitoring.util.DateUtils
 import com.skynet.monitoring.util.UiState
 import com.skynet.monitoring.util.collectResult
+import com.skynet.monitoring.util.elapsedSecondsFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -41,18 +45,25 @@ class WorkingViewModel @Inject constructor(
 
     init {
         load()
-        startTimer()
+        startDurationTimer()
         // LocationService di-start oleh WorkingScreen saat task termuat & izin lokasi granted.
     }
 
     private fun load() = _task.collectResult(viewModelScope) { taskRepository.getTaskDetail(taskId) }
 
-    private fun startTimer() {
+    /**
+     * Menyalurkan durasi kerja dari [elapsedSecondsFlow] ke [elapsedSeconds]. Waktu mulai di-anchor
+     * ke `work_log` "sedang_memperbaiki" (waktu perbaikan dimulai) — agar timer tetap akurat walau
+     * layar Working dibuka ulang setelah dikecilkan (VM dibuat ulang). Bila tak ada/parse gagal,
+     * timer mulai dari sekarang (0). Perhitungan detik & tick dilakukan di util, bukan di VM.
+     */
+    private fun startDurationTimer() {
         viewModelScope.launch {
-            while (true) {
-                delay(1000)
-                _elapsedSeconds.value += 1
-            }
+            val task = _task.first { it is UiState.Success } as UiState.Success
+            val startMillis = task.data.workLogs
+                ?.lastOrNull { it.status == TaskStatus.IN_PROGRESS.apiValue }
+                ?.let { DateUtils.toEpochMillis(it.loggedAt) }
+            elapsedSecondsFlow(startMillis).collect { _elapsedSeconds.value = it }
         }
     }
 
@@ -60,7 +71,7 @@ class WorkingViewModel @Inject constructor(
     fun finishRepair() {
         viewModelScope.launch {
             _isFinishing.value = true
-            taskRepository.updateStatus(taskId, "done")
+            taskRepository.updateStatus(taskId, StatusAction.FINISH)
                 .onSuccess { emitEvent(WorkingEvent.Finished) }
                 .onFailure { emitEvent(WorkingEvent.ShowError(it.message ?: "Gagal menyelesaikan tugas")) }
             _isFinishing.value = false

@@ -2,6 +2,7 @@ package com.skynet.monitoring.data.repository
 
 import com.google.gson.Gson
 import com.skynet.monitoring.data.api.ApiService
+import com.skynet.monitoring.data.api.model.StatusAction
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.api.model.TaskDetailResponse
 import com.skynet.monitoring.data.api.model.TaskListResponse
@@ -48,14 +49,14 @@ class TaskRepositoryTest {
     fun `updateStatus memakai status dari server`() = runTest {
         coEvery { api.updateTaskStatus(1, any()) } returns
             Response.success(UpdateStatusResponse("ok", "sedang_memperbaiki"))
-        assertEquals("sedang_memperbaiki", repo.updateStatus(1, "in_progress").getOrNull())
+        assertEquals("sedang_memperbaiki", repo.updateStatus(1, StatusAction.START).getOrNull())
     }
 
     @Test
     fun `updateStatus fallback ke status yang dikirim bila server tak mengembalikan`() = runTest {
         coEvery { api.updateTaskStatus(1, any()) } returns
             Response.success(UpdateStatusResponse("ok", null))
-        assertEquals("done", repo.updateStatus(1, "done").getOrNull())
+        assertEquals("done", repo.updateStatus(1, StatusAction.FINISH).getOrNull())
     }
 
     @Test

@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.skynet.monitoring.data.api.model.TaskStatus
 import com.skynet.monitoring.ui.theme.StatusColors
 
 /**
@@ -19,23 +20,23 @@ import com.skynet.monitoring.ui.theme.StatusColors
 @Composable
 fun StatusBadge(status: String) {
     val dark = isSystemInDarkTheme()
-    val (label, container, content) = when (status) {
-        "ditugaskan" -> Triple(
+    val (label, container, content) = when (TaskStatus.from(status)) {
+        TaskStatus.ASSIGNED -> Triple(
             "Ditugaskan",
             if (dark) StatusColors.AssignedContainerDark else StatusColors.AssignedContainer,
             if (dark) StatusColors.AssignedContentDark else StatusColors.AssignedContent,
         )
-        "sedang_memperbaiki" -> Triple(
+        TaskStatus.IN_PROGRESS -> Triple(
             "Sedang Memperbaiki",
             if (dark) StatusColors.ProgressContainerDark else StatusColors.ProgressContainer,
             if (dark) StatusColors.ProgressContentDark else StatusColors.ProgressContent,
         )
-        "selesai" -> Triple(
+        TaskStatus.DONE -> Triple(
             "Selesai",
             if (dark) StatusColors.DoneContainerDark else StatusColors.DoneContainer,
             if (dark) StatusColors.DoneContentDark else StatusColors.DoneContent,
         )
-        else -> Triple(
+        null -> Triple(
             status,
             if (dark) StatusColors.NeutralContainerDark else StatusColors.NeutralContainer,
             if (dark) StatusColors.NeutralContentDark else StatusColors.NeutralContent,

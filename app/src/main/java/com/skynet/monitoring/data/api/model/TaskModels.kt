@@ -34,7 +34,7 @@ data class TaskDetailResponse(
     @SerializedName("data") val data: Task,
 )
 
-/** Body update status. Kirim "in_progress" atau "done" (lihat status mapping di CLAUDE.md). */
+/** Body update status. Diisi dari [StatusAction.apiValue] (lihat status mapping di CLAUDE.md). */
 data class UpdateStatusRequest(
     @SerializedName("status") val status: String,
 )
