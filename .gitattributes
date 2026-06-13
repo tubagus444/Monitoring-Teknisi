@@ -1,4 +1,4 @@
-﻿# Normalkan akhir baris ke LF di repo — hilangkan warning CRLF di Windows
+# Normalkan akhir baris ke LF di repo — hilangkan warning CRLF di Windows
 # dan jaga konsistensi untuk siapa pun yang clone.
 * text=auto eol=lf
 

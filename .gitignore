@@ -7,6 +7,9 @@
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+# State IDE lokal — berubah terus, jangan dilacak
+/.idea/claudeCodeTabState.xml
+/.idea/deploymentTargetSelector.xml
 .DS_Store
 /build
 /captures
