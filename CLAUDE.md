@@ -32,23 +32,29 @@ Sisa pekerjaan: pengujian end-to-end di perangkat dengan backend Laravel berjala
 
 ## Perintah Umum
 
-```bash
-# Build debug APK
-./gradlew assembleDebug
+> **Product flavors:** ada 2 flavor environment — `emulator` (BASE_URL `10.0.2.2`) & `device`
+> (BASE_URL dari `local.properties` key `deviceBaseUrl`, untuk HP fisik di WiFi). Nama task jadi
+> ber-flavor: `assembleEmulatorDebug`, `compileEmulatorDebugKotlin`, `testEmulatorDebugUnitTest`,
+> dst. Pilih varian di Android Studio via panel **Build Variants**.
 
-# Run unit test
-./gradlew test
+```bash
+# Build debug APK (pilih flavor)
+./gradlew assembleEmulatorDebug      # untuk emulator
+./gradlew assembleDeviceDebug        # untuk HP fisik
+
+# Run unit test (cukup satu flavor — kode sama)
+./gradlew testEmulatorDebugUnitTest
 
 # Run instrumented test
-./gradlew connectedAndroidTest
+./gradlew connectedEmulatorDebugAndroidTest
 
 # Lint
 ./gradlew lint
 ```
 
-> **Build di Windows (PowerShell):** gunakan `.\gradlew.bat`, contoh `.\gradlew.bat :app:assembleDebug`.
-> Untuk verifikasi cepat kode + Hilt cukup `.\gradlew.bat :app:compileDebugKotlin --console=plain`
-> (~20 dtk, skip dexing/packaging). `assembleDebug` hanya saat butuh APK utuh.
+> **Build di Windows (PowerShell):** gunakan `.\gradlew.bat`, contoh `.\gradlew.bat :app:assembleEmulatorDebug`.
+> Untuk verifikasi cepat kode + Hilt cukup `.\gradlew.bat :app:compileEmulatorDebugKotlin --console=plain`
+> (~20 dtk, skip dexing/packaging). `assemble*Debug` hanya saat butuh APK utuh.
 >
 > ⚠️ **JANGAN pakai `--no-daemon`** — di AGP 9 / Gradle 9 / Windows kombinasinya **hang di
 > `kspDebugKotlin`** (proses java idle, log berhenti). Pakai daemon biasa (default). Kalau
@@ -494,7 +500,7 @@ Unit test (host JVM, di `app/src/test/`) memakai JUnit4 + `kotlinx-coroutines-te
 (mock repository/`ApiService`) + **turbine** (assert `Flow`/`events`). `MainDispatcherRule`
 (`util/MainDispatcherRule.kt`) mengganti `Dispatchers.Main` dengan `TestDispatcher`.
 
-- Jalankan: `.\gradlew.bat :app:testDebugUnitTest --console=plain`.
+- Jalankan: `.\gradlew.bat :app:testEmulatorDebugUnitTest --console=plain`.
 - Uji ViewModel: `runTest(mainDispatcherRule.dispatcher) { … }` agar scheduler dibagi dengan
   `viewModelScope`; uji `events` dengan turbine; panggil `vm.viewModelScope.cancel()` di `finally`
   bila VM punya coroutine menetap (timer / `stateIn`), supaya `runTest` selesai bersih.

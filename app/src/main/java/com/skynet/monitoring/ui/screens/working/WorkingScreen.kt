@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -23,6 +25,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -52,6 +55,7 @@ import com.skynet.monitoring.util.UiState
 @Composable
 fun WorkingScreen(
     onFinished: () -> Unit,
+    onMinimize: () -> Unit,
     viewModel: WorkingViewModel = hiltViewModel(),
 ) {
     val taskState by viewModel.task.collectAsStateWithLifecycle()
@@ -93,8 +97,24 @@ fun WorkingScreen(
         }
     }
 
+    // Tombol back sistem = kecilkan (kembali ke daftar tugas), BUKAN menyelesaikan tugas.
+    // GPS foreground service sengaja dibiarkan jalan di belakang.
+    BackHandler { onMinimize() }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Sedang Memperbaiki") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Sedang Memperbaiki") },
+                navigationIcon = {
+                    IconButton(onClick = onMinimize) {
+                        Icon(
+                            Icons.Filled.KeyboardArrowDown,
+                            contentDescription = "Kecilkan — GPS tetap berjalan di latar",
+                        )
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         when (val state = taskState) {
@@ -159,7 +179,8 @@ private fun WorkingContent(
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Text(
-                        text = "Lokasi Anda dikirim ke admin secara berkala",
+                        text = "Lokasi Anda dikirim ke admin secara berkala. Tetap berjalan " +
+                            "walau layar ini dikecilkan (tombol ⌄ di atas).",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )

@@ -29,4 +29,18 @@ object DateUtils {
      */
     fun toIso8601(epochMillis: Long): String =
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date(epochMillis))
+
+    /**
+     * ISO-8601 backend → epoch millis UTC, atau null bila kosong/format tak dikenal.
+     * Dipakai layar Working untuk menghitung durasi dari waktu mulai perbaikan (`work_log`),
+     * agar timer tetap akurat walau layar dibuka ulang.
+     */
+    fun toEpochMillis(iso: String?): Long? {
+        if (iso.isNullOrBlank()) return null
+        return try {
+            inputFormat.parse(iso)?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

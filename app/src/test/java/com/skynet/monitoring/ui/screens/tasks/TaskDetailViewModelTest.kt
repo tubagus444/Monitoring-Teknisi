@@ -2,6 +2,7 @@ package com.skynet.monitoring.ui.screens.tasks
 
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
+import com.skynet.monitoring.data.api.model.StatusAction
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.repository.TaskRepository
 import com.skynet.monitoring.util.ApiException
@@ -40,7 +41,7 @@ class TaskDetailViewModelTest {
     fun `startRepair sukses mengirim event RepairStarted`() =
         runTest(mainDispatcherRule.dispatcher) {
             coEvery { taskRepository.getTaskDetail(1) } returns Result.success(task())
-            coEvery { taskRepository.updateStatus(1, "in_progress") } returns
+            coEvery { taskRepository.updateStatus(1, StatusAction.START) } returns
                 Result.success("sedang_memperbaiki")
             val vm = TaskDetailViewModel(taskRepository, handle())
             advanceUntilIdle()
@@ -56,7 +57,7 @@ class TaskDetailViewModelTest {
     fun `startRepair gagal mengirim event ShowError`() =
         runTest(mainDispatcherRule.dispatcher) {
             coEvery { taskRepository.getTaskDetail(1) } returns Result.success(task())
-            coEvery { taskRepository.updateStatus(1, "in_progress") } returns
+            coEvery { taskRepository.updateStatus(1, StatusAction.START) } returns
                 Result.failure(ApiException("Transisi status tidak valid", 422))
             val vm = TaskDetailViewModel(taskRepository, handle())
             advanceUntilIdle()
