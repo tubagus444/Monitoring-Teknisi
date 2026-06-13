@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,6 +7,14 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
 }
+
+// IP backend untuk HP fisik dibaca dari local.properties (tidak ikut commit), key `deviceBaseUrl`.
+// Saat pindah WiFi cukup ganti nilai di local.properties — tak perlu sentuh kode.
+// Fallback ke IP LAN saat ini bila key belum diisi.
+val deviceBaseUrl: String = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}.getProperty("deviceBaseUrl") ?: "http://192.168.0.105:8000/api/"
 
 android {
     namespace = "com.skynet.monitoring"
@@ -22,10 +32,22 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-        // Base URL backend Laravel. 10.0.2.2 = host machine dari emulator Android.
-        // Untuk device fisik, ganti ke IP LAN: http://192.168.x.x:8000/api/
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/\"")
+    // Dua varian environment. Pilih di Android Studio: "Build Variants" → emulatorDebug / deviceDebug.
+    // applicationId TIDAK diubah per-flavor agar google-services.json (Firebase) tetap cocok.
+    flavorDimensions += "env"
+    productFlavors {
+        create("emulator") {
+            dimension = "env"
+            // 10.0.2.2 = host machine dari emulator Android.
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/api/\"")
+        }
+        create("device") {
+            dimension = "env"
+            // IP LAN laptop, diisi via local.properties (key: deviceBaseUrl).
+            buildConfigField("String", "BASE_URL", "\"$deviceBaseUrl\"")
+        }
     }
 
     buildTypes {
