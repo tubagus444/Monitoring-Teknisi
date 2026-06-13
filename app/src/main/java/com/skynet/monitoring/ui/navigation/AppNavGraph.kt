@@ -89,6 +89,7 @@ fun AppNavGraph(startDestination: String) {
             composable(Routes.TASKS) {
                 TaskListScreen(
                     onTaskClick = { id -> navController.navigate(Routes.taskDetail(id)) },
+                    onResumeWork = { id -> navController.navigate(Routes.working(id)) },
                 )
             }
 
@@ -111,6 +112,15 @@ fun AppNavGraph(startDestination: String) {
                 WorkingScreen(
                     onFinished = {
                         // Kembali ke daftar tugas (fresh) setelah selesai.
+                        navController.navigate(Routes.TASKS) {
+                            popUpTo(Routes.TASKS) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onMinimize = {
+                        // "Kecilkan": kembali ke daftar tugas tanpa menyetop GPS service.
+                        // Bottom nav tersedia lagi; teknisi bisa cek tugas/notifikasi/profil.
+                        // Masuk lagi via Detail Tugas → "Lanjutkan Perbaikan".
                         navController.navigate(Routes.TASKS) {
                             popUpTo(Routes.TASKS) { inclusive = true }
                             launchSingleTop = true
