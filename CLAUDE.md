@@ -72,12 +72,18 @@ Proyek memakai AGP 9.2.1 + Kotlin 2.2.10 + built-in Kotlin. Dua syarat wajib:
 ### Base URL API
 
 Backend Laravel berjalan di `http://localhost:8000` (Laragon, Windows). Android tidak bisa
-akses `localhost` langsung — gunakan:
+akses `localhost` langsung. `BASE_URL` **tidak hardcoded di Kotlin** — disuntik per product
+flavor via `buildConfigField` di `app/build.gradle.kts`, lalu dikonsumsi di `NetworkModule`
+sebagai `BuildConfig.BASE_URL`:
+
+| Flavor | BASE_URL | Sumber |
+|---|---|---|
+| `emulator` | `http://10.0.2.2:8000/api/` | hardcoded di `build.gradle.kts` |
+| `device` | IP LAN laptop (mis. `http://192.168.x.x:8000/api/`) | `local.properties` key `deviceBaseUrl` |
 
 ```kotlin
-// app/src/main/java/.../data/api/ApiService.kt atau Constants.kt
-const val BASE_URL = "http://10.0.2.2:8000/api/"   // emulator Android
-// const val BASE_URL = "http://192.168.x.x:8000/api/"  // device fisik (ganti IP)
+// NetworkModule.kt — konsumsi nilai dari flavor
+Retrofit.Builder().baseUrl(BuildConfig.BASE_URL)
 ```
 
 ### Firebase
@@ -90,17 +96,22 @@ const val BASE_URL = "http://10.0.2.2:8000/api/"   // emulator Android
 
 ```
 app/src/main/java/com/skynet/monitoring/
+├── MonitoringApp.kt             # Application (@HiltAndroidApp)
+├── MainActivity.kt              # Single-activity host Compose
 ├── di/
-│   ├── NetworkModule.kt         # Retrofit, OkHttp, ApiService, AuthInterceptor
+│   ├── NetworkModule.kt         # Retrofit, OkHttp, ApiService
 │   └── RepositoryModule.kt      # Binding interface → implementasi repository
 ├── data/
 │   ├── api/
 │   │   ├── ApiService.kt        # Semua endpoint Retrofit (interface)
+│   │   ├── AuthInterceptor.kt   # Sisipkan header Authorization + Accept
 │   │   └── model/               # Data class request & response
 │   │       ├── AuthModels.kt
 │   │       ├── TaskModels.kt
+│   │       ├── TaskStatus.kt    # Enum status tugas
 │   │       ├── LocationModels.kt
-│   │       └── NotificationModels.kt
+│   │       ├── NotificationModels.kt
+│   │       └── ErrorResponse.kt # Bentuk umum body error backend
 │   ├── repository/
 │   │   ├── AuthRepository.kt
 │   │   ├── TaskRepository.kt
@@ -109,8 +120,11 @@ app/src/main/java/com/skynet/monitoring/
 │   └── local/
 │       └── UserPreferences.kt   # DataStore: simpan token + data user
 ├── ui/
+│   ├── BaseViewModel.kt         # Event sekali-pakai (events: Flow<E>)
+│   ├── MainViewModel.kt         # State global (token/sesi) untuk routing awal
 │   ├── navigation/
-│   │   └── AppNavGraph.kt       # NavHost + definisi semua route
+│   │   ├── AppNavGraph.kt       # NavHost
+│   │   └── Routes.kt            # Definisi semua route
 │   ├── screens/
 │   │   ├── auth/
 │   │   │   ├── LoginScreen.kt
@@ -129,13 +143,21 @@ app/src/main/java/com/skynet/monitoring/
 │   │   └── profile/
 │   │       ├── ProfileScreen.kt
 │   │       └── ProfileViewModel.kt
-│   ├── components/              # Composable reusable: StatusBadge, TaskCard, dll.
+│   ├── components/              # Composable reusable: StatusBadge, TaskCard, BrandLogo, StateViews
 │   └── theme/
 │       ├── Theme.kt
 │       ├── Color.kt
 │       └── Type.kt
-└── service/
-    └── LocationService.kt       # Foreground Service pengiriman GPS berkala
+├── service/
+│   ├── LocationService.kt       # Foreground Service pengiriman GPS berkala
+│   └── MonitoringFirebaseService.kt  # FirebaseMessagingService (FCM)
+└── util/
+    ├── Constants.kt             # Konstanta GPS (interval, displacement) dll.
+    ├── DateUtils.kt             # Format/parse ISO-8601 (toIso8601, format)
+    ├── WorkDuration.kt          # Hitung durasi pengerjaan
+    ├── UiState.kt               # sealed interface UiState<out T>
+    ├── ApiCall.kt               # safeApiCall — wrap network call → Result
+    └── UiStateLoader.kt         # collectResult() — load()/refresh() ke UiState
 ```
 
 ## Kontrak API Backend
@@ -441,19 +463,22 @@ val USER_KEY  = stringPreferencesKey("user_json")  // JSON dari object User logi
 
 ## OkHttp AuthInterceptor
 
-Pasang interceptor untuk menambahkan token otomatis ke setiap request:
+File: `data/api/AuthInterceptor.kt` (kelas terpisah, di-inject ke OkHttp lewat `NetworkModule`).
+Selalu menambahkan header `Accept`, dan menambahkan `Authorization` **hanya bila token ada** —
+jangan kirim `Bearer null` saat belum login (endpoint `login` tak boleh membawa bearer basi):
 
 ```kotlin
 class AuthInterceptor @Inject constructor(
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val token = runBlocking { userPreferences.getToken() }
-        val request = chain.request().newBuilder()
-            .addHeader("Authorization", "Bearer $token")
+        val builder = chain.request().newBuilder()
             .addHeader("Accept", "application/json")
-            .build()
-        return chain.proceed(request)
+        if (!token.isNullOrBlank()) {
+            builder.addHeader("Authorization", "Bearer $token")
+        }
+        return chain.proceed(builder.build())
     }
 }
 ```
@@ -479,7 +504,7 @@ Snackbar. HTTP status yang relevan:
 ## Konvensi Kode
 
 - Satu ViewModel per layar — jangan share ViewModel antar layar kecuali data benar-benar sama
-- UI state dimodelkan sebagai `sealed class UiState<T>`:
+- UI state dimodelkan sebagai `sealed interface UiState<out T>` (`util/UiState.kt`):
   `Loading`, `Success(data: T)`, `Error(message: String)`
 - Repository mengembalikan `Result<T>` — wrap semua network call dengan `try/catch`
 - Network call di `Dispatchers.IO`, collect di ViewModel dengan `viewModelScope`
@@ -504,4 +529,4 @@ Unit test (host JVM, di `app/src/test/`) memakai JUnit4 + `kotlinx-coroutines-te
 - Uji ViewModel: `runTest(mainDispatcherRule.dispatcher) { … }` agar scheduler dibagi dengan
   `viewModelScope`; uji `events` dengan turbine; panggil `vm.viewModelScope.cancel()` di `finally`
   bila VM punya coroutine menetap (timer / `stateIn`), supaya `runTest` selesai bersih.
-- Cakupan saat ini: semua repository + `safeApiCall` + `DateUtils` + semua ViewModel (46 test).
+- Cakupan saat ini: semua repository + `safeApiCall` + `DateUtils` + `WorkDuration` + semua ViewModel (51 test).

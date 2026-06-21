@@ -1,5 +1,9 @@
 # Rencana Implementasi — Aplikasi Monitoring Teknisi (SkyNet)
 
+> 📦 **ARSIP — semua fase (0–9) selesai, dokumen ini bersifat historis (read-only).**
+> Bukan to-do aktif lagi; disimpan sebagai catatan perencanaan & progres (metode RAD).
+> Kontrak aktif (API, struktur, konvensi) ada di `CLAUDE.md`.
+
 > Dokumen acuan pengerjaan. Klien Android untuk backend Laravel `Aplikasi-Monitoring`.
 > Studi kasus skripsi, metode RAD. Acuan kontrak API & struktur: lihat `CLAUDE.md`.
 
