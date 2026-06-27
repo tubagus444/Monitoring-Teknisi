@@ -155,7 +155,7 @@ private fun ActiveRepairBanner(task: Task, onClick: () -> Unit) {
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Sedang memperbaiki • ${task.customer}",
+                    text = "Sedang memperbaiki • ${task.displayTitle}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,

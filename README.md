@@ -11,6 +11,7 @@ Dikerjakan sebagai studi kasus skripsi dengan metode pengembangan **RAD**.
 > - **[CLAUDE.md](CLAUDE.md)** — kontrak teknis (API, struktur, konvensi kode)
 > - **[CARA_KERJA_APLIKASI.md](CARA_KERJA_APLIKASI.md)** — penjelasan alur aplikasi 
 > - **[RENCANA_IMPLEMENTASI.md](RENCANA_IMPLEMENTASI.md)** — arsip rencana & progres per fase
+> - **[PENGEMBANGAN_LANJUTAN.md](PENGEMBANGAN_LANJUTAN.md)** — catatan iterasi fitur pasca-MVP
 
 ## Fitur Utama
 

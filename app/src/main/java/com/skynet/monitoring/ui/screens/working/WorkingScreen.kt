@@ -203,7 +203,7 @@ private fun WorkingContent(
         )
 
         Text(
-            text = task.customer,
+            text = task.displayTitle,
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(top = 24.dp),
         )

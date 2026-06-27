@@ -32,12 +32,15 @@ fun TaskCard(task: Task, onClick: () -> Unit) {
                 verticalAlignment = Alignment.Top,
             ) {
                 Text(
-                    text = task.customer,
+                    text = task.displayTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
                 )
                 StatusBadge(task.status)
             }
+
+            CategoryBadge(task.category, modifier = Modifier.padding(top = 8.dp))
 
             Text(
                 text = task.damageType,
