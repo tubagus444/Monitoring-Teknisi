@@ -10,8 +10,9 @@ Studi kasus skripsi, metode RAD.
 ## Status Implementasi
 
 ✅ Semua fitur inti (Fase 0–9) sudah diimplementasikan & build hijau (`app-debug.apk` terbentuk).
-Detail progres per fase ada di `RENCANA_IMPLEMENTASI.md`. Dokumen ini tetap menjadi
-acuan kontrak (API, struktur, konvensi) — bukan catatan progres.
+Detail progres per fase ada di `RENCANA_IMPLEMENTASI.md` (arsip); iterasi/fitur **pasca-MVP**
+(mis. penyesuaian Modul Pelanggan) dicatat di `PENGEMBANGAN_LANJUTAN.md`. Dokumen ini tetap
+menjadi acuan kontrak (API, struktur, konvensi) — bukan catatan progres.
 
 Sisa pekerjaan: pengujian end-to-end di perangkat dengan backend Laravel berjalan.
 
@@ -109,6 +110,7 @@ app/src/main/java/com/skynet/monitoring/
 │   │       ├── AuthModels.kt
 │   │       ├── TaskModels.kt
 │   │       ├── TaskStatus.kt    # Enum status tugas
+│   │       ├── TaskCategory.kt  # Enum kategori tugas (pelanggan/jaringan/pemeliharaan) + label
 │   │       ├── LocationModels.kt
 │   │       ├── NotificationModels.kt
 │   │       └── ErrorResponse.kt # Bentuk umum body error backend
@@ -143,7 +145,7 @@ app/src/main/java/com/skynet/monitoring/
 │   │   └── profile/
 │   │       ├── ProfileScreen.kt
 │   │       └── ProfileViewModel.kt
-│   ├── components/              # Composable reusable: StatusBadge, TaskCard, BrandLogo, StateViews
+│   ├── components/              # Composable reusable: StatusBadge, CategoryBadge, TaskCard, BrandLogo, StateViews
 │   └── theme/
 │       ├── Theme.kt
 │       ├── Color.kt
@@ -223,11 +225,16 @@ Response 200:
       "id": 1,
       "report_id": 5,
       "status": "ditugaskan",
+      "category": "pelanggan",
+      "headline": "Pak Ahmad",
       "customer": "Pak Ahmad",
       "address": "Jl. Mawar No.3, Cikarang",
       "damage_type": "Kabel Putus",
       "notes": "Sinyal hilang total sejak kemarin",
-      "assigned_at": "2025-06-01T08:00:00+07:00"
+      "assigned_at": "2025-06-01T08:00:00+07:00",
+      "phone": "081234567890",
+      "ip_address": "192.168.10.5",
+      "subscription_package": "20 Mbps"
     }
   ]
 }
@@ -236,12 +243,22 @@ Response 200:
 `status` hanya akan berisi `"ditugaskan"` atau `"sedang_memperbaiki"` di endpoint ini.
 Tugas yang sudah `"selesai"` tidak muncul.
 
+> **Kategori tugas (Modul Pelanggan).** Sejak backend punya Modul Pelanggan, tiap tugas ber-`category`:
+> `"pelanggan"` | `"jaringan"` | `"pemeliharaan"`.
+> - **Judul tampilan: SELALU pakai `headline`** (selalu terisi), JANGAN `customer`.
+> - Field pelanggan (`customer`, `phone`, `ip_address`, `subscription_package`) **bisa `null`**
+>   pada tugas `jaringan`/`pemeliharaan` — UI wajib aman-null. Di model Kotlin, field-field ini
+>   nullable; `Task.displayTitle` (`headline` → `customer` → fallback) jadi judul aman-null terpusat.
+> - Label kategori (Indonesia): `pelanggan` → "Gangguan Pelanggan", `jaringan` → "Gangguan
+>   Jaringan/Infrastruktur", `pemeliharaan` → "Pemeliharaan" (lihat enum `TaskCategory`).
+
 > **`address` adalah teks biasa, BUKAN koordinat.** Tabel `damage_reports` tidak menyimpan
 > lat/lng pelanggan — jadi app TIDAK bisa menampilkan pin pelanggan di peta atau fitur
 > "navigasi ke lokasi". GPS yang dikirim app hanya posisi teknisi (untuk dipantau admin).
+> Untuk pelanggan `address` = alamat; untuk jaringan/pemeliharaan = lokasi/area terdampak.
 > Tampilkan `address` sebagai teks saja (atau buka di Google Maps via intent `geo:0,0?q=<address>`).
 
-**Detail Tugas** — sama dengan list, ditambah `work_logs`
+**Detail Tugas** — sama dengan list, ditambah `work_logs` & `house_photos`
 ```
 GET /api/tasks/{id}
 
@@ -251,11 +268,19 @@ Response 200:
     "id": 1,
     "report_id": 5,
     "status": "ditugaskan",
+    "category": "pelanggan",
+    "headline": "Pak Ahmad",
     "customer": "Pak Ahmad",
     "address": "Jl. Mawar No.3, Cikarang",
     "damage_type": "Kabel Putus",
     "notes": "Sinyal hilang total",
     "assigned_at": "2025-06-01T08:00:00+07:00",
+    "phone": "081234567890",
+    "ip_address": "192.168.10.5",
+    "subscription_package": "20 Mbps",
+    "house_photos": [
+      "http://10.0.2.2:8000/storage/customer-photos/demo.jpg"
+    ],
     "work_logs": [
       {
         "status": "ditugaskan",
@@ -267,6 +292,16 @@ Response 200:
   }
 }
 ```
+
+> **`house_photos` hanya ada di endpoint DETAIL** (tidak di list). Array URL **absolut** foto
+> rumah pelanggan; `[]` untuk non-pelanggan / belum ada foto. URL mengikuti host API — muat apa
+> adanya via Coil (jangan susun manual; asalkan `BASE_URL` benar, URL foto otomatis benar).
+> Karena di-serve via HTTP biasa dari folder `storage` backend, butuh `usesCleartextTraffic="true"`
+> (sudah aktif). Detail tugas **adaptif per kategori**: `pelanggan` → tampilkan kartu kontak
+> (customer, phone dgn aksi telepon/WhatsApp, ip_address, subscription_package) + galeri
+> `house_photos`; `jaringan`/`pemeliharaan` → sembunyikan kartu & galeri (cukup headline + address).
+>
+> Belum ada (jangan di-scaffold): upload foto rumah dari Android & fitur catatan/bukti pekerjaan.
 
 **Update Status Tugas**
 ```
@@ -359,7 +394,7 @@ Response 200: { "message": "Notifikasi ditandai sudah dibaca" }
 |---|---|---|---|
 | 1 | Login | `login` | Form email + password. Simpan token ke DataStore. Kirim FCM token setelah login berhasil. |
 | 2 | Daftar Tugas | `tasks` | List tugas aktif. Tab utama bottom navigation. Pull-to-refresh + auto-refresh tiap `ON_RESUME` (agar tugas baru muncul tanpa restart app). |
-| 3 | Detail Tugas | `tasks/{id}` | Info lengkap, timeline work logs, tombol "Mulai Memperbaiki" / "Selesai". |
+| 3 | Detail Tugas | `tasks/{id}` | Info lengkap (judul = `headline`), badge kategori, timeline work logs, tombol "Mulai Memperbaiki" / "Selesai". **Adaptif**: kategori `pelanggan` → kartu kontak (telepon/WhatsApp) + galeri `house_photos`; non-pelanggan → tanpa kartu/galeri. |
 | 4 | Sedang Memperbaiki | `tasks/{id}/working` | Layar aktif saat GPS berjalan. Tampilkan nama pelanggan, alamat, timer durasi, status live. Tombol "Tandai Selesai". |
 | 5 | Notifikasi | `notifications` | Daftar notifikasi terbaru, indikator belum-baca. Tap → tandai dibaca. |
 | 6 | Profil | `profile` | Nama + email user. Tombol logout. |
