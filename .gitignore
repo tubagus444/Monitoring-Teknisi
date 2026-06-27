@@ -11,6 +11,9 @@
 /.idea/claudeCodeTabState.xml
 /.idea/deploymentTargetSelector.xml
 /.idea/appInsightsSettings.xml
+/.idea/misc.xml
+/.idea/markdown.xml
+/.idea/codeStyles/
 .DS_Store
 /build
 /captures
