@@ -621,3 +621,8 @@ Unit test (host JVM, di `app/src/test/`) memakai JUnit4 + `kotlinx-coroutines-te
   bila VM punya coroutine menetap (timer / `stateIn`), supaya `runTest` selesai bersih.
 - Cakupan saat ini: semua repository (termasuk catatan `description` & unggah foto bukti/rumah) +
   `safeApiCall` + `DateUtils` + `WorkDuration` + semua ViewModel (56 test).
+- **Titik buta:** `ImageCompressor` TIDAK punya unit test — bergantung pada `BitmapFactory`/`ExifInterface`
+  framework Android yang tak tersedia di JVM, jadi tak bisa diuji di `src/test/`. Test repository yang
+  menyentuh upload foto **me-mock** `ImageCompressor`, sehingga logika decode/kompres asli tak pernah
+  dijalankan unit test. Verifikasi perubahan di sini lewat perangkat/instrumented test — jangan anggap
+  "hijau di unit test" berarti kompresi foto benar (bug dekode pernah lolos justru di sini).
