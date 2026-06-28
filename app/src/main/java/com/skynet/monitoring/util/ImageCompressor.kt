@@ -41,9 +41,14 @@ class ImageCompressor @Inject constructor(
     /** Decode dengan [BitmapFactory.Options.inSampleSize] agar bitmap tak membebani memori. */
     private fun decodeSampled(uri: Uri): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use {
+        // Catatan: dengan inJustDecodeBounds=true, decodeStream SELALU mengembalikan null
+        // (hanya mengisi `bounds`). Jadi kegagalan dideteksi dari stream null & ukuran bounds,
+        // BUKAN dari nilai balik decode — kalau dipakai sebagai cek, fungsi ini selalu return null.
+        val opened = context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, bounds)
-        } ?: return null
+            true
+        }
+        if (opened != true) return null
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
         val opts = BitmapFactory.Options().apply {
