@@ -1,5 +1,6 @@
 package com.skynet.monitoring.ui.screens.tasks
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.skynet.monitoring.data.api.model.StatusAction
@@ -19,6 +20,7 @@ import javax.inject.Inject
 sealed interface TaskDetailEvent {
     /** Status berhasil diubah ke in_progress → navigasi ke layar Working. */
     data object RepairStarted : TaskDetailEvent
+    data class ShowMessage(val message: String) : TaskDetailEvent
     data class ShowError(val message: String) : TaskDetailEvent
 }
 
@@ -36,11 +38,37 @@ class TaskDetailViewModel @Inject constructor(
     private val _isUpdating = MutableStateFlow(false)
     val isUpdating: StateFlow<Boolean> = _isUpdating.asStateFlow()
 
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
     init {
         load()
     }
 
     fun load() = _uiState.collectResult(viewModelScope) { taskRepository.getTaskDetail(taskId) }
+
+    /** Unggah foto bukti pekerjaan (semua kategori) dari [uri], lalu muat ulang detail. */
+    fun uploadRepairPhoto(uri: Uri) = upload("Foto bukti diunggah") {
+        taskRepository.uploadRepairPhoto(taskId, uri)
+    }
+
+    /** Unggah foto rumah pelanggan (hanya kategori pelanggan) dari [uri], lalu muat ulang detail. */
+    fun uploadHousePhoto(uri: Uri) = upload("Foto rumah diunggah") {
+        taskRepository.uploadHousePhoto(taskId, uri)
+    }
+
+    private fun upload(successMessage: String, block: suspend () -> Result<Unit>) {
+        viewModelScope.launch {
+            _isUploading.value = true
+            block()
+                .onSuccess {
+                    emitEvent(TaskDetailEvent.ShowMessage(successMessage))
+                    load()
+                }
+                .onFailure { emitEvent(TaskDetailEvent.ShowError(it.message ?: "Gagal mengunggah foto")) }
+            _isUploading.value = false
+        }
+    }
 
     /** Tombol "Mulai Memperbaiki": kirim in_progress lalu picu navigasi ke Working. */
     fun startRepair() {

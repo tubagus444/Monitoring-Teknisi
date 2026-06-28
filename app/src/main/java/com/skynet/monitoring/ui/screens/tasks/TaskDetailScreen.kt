@@ -51,10 +51,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.skynet.monitoring.data.api.model.RepairPhoto
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.api.model.TaskCategory
 import com.skynet.monitoring.data.api.model.TaskStatus
 import com.skynet.monitoring.data.api.model.WorkLog
+import com.skynet.monitoring.ui.components.AddPhotoButton
 import com.skynet.monitoring.ui.components.CategoryBadge
 import com.skynet.monitoring.ui.components.ErrorView
 import com.skynet.monitoring.ui.components.LoadingView
@@ -71,12 +73,14 @@ fun TaskDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isUpdating by viewModel.isUpdating.collectAsStateWithLifecycle()
+    val isUploading by viewModel.isUploading.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 TaskDetailEvent.RepairStarted -> onNavigateToWorking(viewModel.taskId)
+                is TaskDetailEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
                 is TaskDetailEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -105,8 +109,11 @@ fun TaskDetailScreen(
             is UiState.Success -> DetailContent(
                 task = state.data,
                 isUpdating = isUpdating,
+                isUploading = isUploading,
                 onStartRepair = viewModel::startRepair,
                 onContinueRepair = { onNavigateToWorking(viewModel.taskId) },
+                onUploadRepairPhoto = viewModel::uploadRepairPhoto,
+                onUploadHousePhoto = viewModel::uploadHousePhoto,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -117,8 +124,11 @@ fun TaskDetailScreen(
 private fun DetailContent(
     task: Task,
     isUpdating: Boolean,
+    isUploading: Boolean,
     onStartRepair: () -> Unit,
     onContinueRepair: () -> Unit,
+    onUploadRepairPhoto: (Uri) -> Unit,
+    onUploadHousePhoto: (Uri) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -173,16 +183,50 @@ private fun DetailContent(
             }
         }
 
-        // --- Kartu kontak & galeri foto: hanya untuk tugas kategori "pelanggan" ---
+        // --- Kartu kontak & galeri foto rumah: hanya untuk tugas kategori "pelanggan" ---
         if (TaskCategory.from(task.category) == TaskCategory.PELANGGAN) {
             CustomerContactCard(task = task, modifier = Modifier.padding(top = 16.dp))
             if (task.housePhotos.isNotEmpty()) {
-                HousePhotoGallery(
+                PhotoGallery(
+                    title = "Foto Rumah",
                     photos = task.housePhotos,
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
+            AddPhotoButton(
+                text = "Tambah Foto Rumah",
+                enabled = !isUploading,
+                onImagePicked = onUploadHousePhoto,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+            )
         }
+
+        // --- Galeri foto bukti pekerjaan + unggah (semua kategori) ---
+        Text(
+            text = "Foto Bukti Pekerjaan",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+        )
+        if (task.repairPhotos.isNotEmpty()) {
+            RepairPhotoGallery(photos = task.repairPhotos)
+        } else {
+            Text(
+                text = "Belum ada foto bukti.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        AddPhotoButton(
+            text = "Tambah Foto Bukti",
+            enabled = !isUploading,
+            onImagePicked = onUploadRepairPhoto,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+        )
 
         // --- Timeline work logs ---
         if (!task.workLogs.isNullOrEmpty()) {
@@ -344,47 +388,95 @@ private fun CustomerContactCard(task: Task, modifier: Modifier = Modifier) {
 }
 
 /**
- * Galeri foto rumah pelanggan. Thumbnail horizontal (Coil) dari URL absolut di [photos];
- * ketuk thumbnail untuk memperbesar dalam dialog. URL dimuat apa adanya (ikut host API).
+ * Galeri foto generik. Thumbnail horizontal (Coil) dari URL absolut di [photos]; ketuk untuk
+ * memperbesar dalam dialog. URL dimuat apa adanya (ikut host API). Dipakai untuk foto rumah.
  */
 @Composable
-private fun HousePhotoGallery(photos: List<String>, modifier: Modifier = Modifier) {
-    var enlarged by remember { mutableStateOf<String?>(null) }
-
+private fun PhotoGallery(title: String, photos: List<String>, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Foto Rumah",
+            text = title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(bottom = 8.dp),
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(photos.size) { index ->
-                val url = photos[index]
+        PhotoThumbnailRow(photos)
+    }
+}
+
+/**
+ * Galeri foto bukti pekerjaan ([RepairPhoto] = url + caption + teknisi). Caption ditampilkan di
+ * bawah tiap thumbnail; ketuk untuk memperbesar.
+ */
+@Composable
+private fun RepairPhotoGallery(photos: List<RepairPhoto>, modifier: Modifier = Modifier) {
+    var enlarged by remember { mutableStateOf<String?>(null) }
+
+    LazyRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(photos.size) { index ->
+            val photo = photos[index]
+            Column(modifier = Modifier.size(120.dp)) {
                 AsyncImage(
-                    model = url,
-                    contentDescription = "Foto rumah ${index + 1}",
+                    model = photo.url,
+                    contentDescription = photo.caption ?: "Foto bukti ${index + 1}",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(120.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { enlarged = url },
+                        .clickable { enlarged = photo.url },
                 )
+                photo.caption?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
         }
     }
 
-    enlarged?.let { url ->
-        Dialog(onDismissRequest = { enlarged = null }) {
+    EnlargedPhotoDialog(enlarged) { enlarged = null }
+}
+
+/** Baris thumbnail dari daftar URL string + dialog perbesar. */
+@Composable
+private fun PhotoThumbnailRow(photos: List<String>) {
+    var enlarged by remember { mutableStateOf<String?>(null) }
+
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(photos.size) { index ->
+            val url = photos[index]
             AsyncImage(
                 model = url,
-                contentDescription = "Foto rumah diperbesar",
+                contentDescription = "Foto ${index + 1}",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { enlarged = url },
+            )
+        }
+    }
+
+    EnlargedPhotoDialog(enlarged) { enlarged = null }
+}
+
+/** Dialog pembesar foto bersama (foto rumah & bukti). */
+@Composable
+private fun EnlargedPhotoDialog(url: String?, onDismiss: () -> Unit) {
+    url?.let {
+        Dialog(onDismissRequest = onDismiss) {
+            AsyncImage(
+                model = it,
+                contentDescription = "Foto diperbesar",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable { enlarged = null },
+                    .clickable { onDismiss() },
             )
         }
     }

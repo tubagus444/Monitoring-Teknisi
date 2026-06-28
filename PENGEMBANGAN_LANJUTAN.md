@@ -14,6 +14,7 @@
 | # | Iterasi | Tanggal | Status |
 |---|---|---|---|
 | 1 | [Penyesuaian Modul Pelanggan](#iterasi-1--penyesuaian-modul-pelanggan) | 2026-06-27 | ✅ Selesai (kode) |
+| 2 | [Catatan & Bukti Pekerjaan + Foto Rumah](#iterasi-2--catatan--bukti-pekerjaan--foto-rumah) | 2026-06-28 | ✅ Selesai (kode) |
 
 > Tambahkan baris baru di tabel ini setiap memulai iterasi, lalu tulis detailnya memakai
 > **template** di bawah.
@@ -155,3 +156,96 @@ Helper `toWhatsAppNumber(phone)`: buang non-digit, `0…` → `62…`.
 - [x] Verifikasi: compile hijau + 51 test lulus
 - [ ] Uji end-to-end: tugas pelanggan (kontak + galeri) & tugas jaringan/pemeliharaan (tanpa
       crash, field `null`, galeri kosong) dengan backend Laravel berjalan
+
+---
+
+## Iterasi 2 — Catatan & Bukti Pekerjaan + Foto Rumah
+
+> Status: ✅ Selesai (kode) — `assembleEmulatorDebug` hijau, 56 unit test lulus.
+> Sisa = uji end-to-end dengan backend Laravel berjalan.
+
+### Konteks
+
+Backend menambah 3 kemampuan (semua **backward-compatible**, hanya menambah): (A) catatan
+pekerjaan opsional saat update status, (B) unggah foto bukti hasil kerja, (C) unggah foto rumah
+pelanggan. Detail tugas kini juga mengembalikan `repair_photos`. Endpoint lama tetap jalan.
+
+### Keputusan yang Dikonfirmasi
+
+| Topik | Keputusan | Alasan |
+|---|---|---|
+| **Sumber foto** | Kamera **+** Galeri | Teknisi lapangan butuh foto langsung; galeri untuk foto lama. |
+| **Tempat unggah foto bukti** | Detail **dan** Working | Fleksibel — bisa saat bekerja maupun saat melihat detail. |
+| **Permission kamera** | TIDAK deklarasi `CAMERA` | ACTION_IMAGE_CAPTURE via `FileProvider` tak butuh izin → tanpa prompt. |
+| **Kompresi** | JPEG <5 MB di klien (down-sample + EXIF) | Lolos batas 5 MB backend; hemat kuota; perbaiki rotasi. |
+| **Refresh setelah unggah** | Muat ulang detail (`getTaskDetail`) | Galeri `repair_photos`/`house_photos` selalu konsisten dgn server. |
+| **Catatan saat selesai** | Dialog konfirmasi di Working dgn field multiline | Paling relevan saat `done` (rangkuman hasil). |
+| **Idempotent 200 status** | Diperlakukan sukses | Bila tak ada transisi, server balas 200 tanpa work log baru — bukan error. |
+
+### Perubahan Kontrak API
+
+| Endpoint | Perubahan |
+|---|---|
+| `POST /tasks/{id}/status` | + field opsional `description` (string, maks 1000) |
+| `GET /tasks/{id}` | + field `repair_photos` (objek `{url, caption, technician, uploaded_at}`) |
+| `POST /tasks/{id}/photos` | **BARU** — multipart `photo` (wajib, ≤5 MB) + `caption`, semua kategori, 201 |
+| `POST /tasks/{id}/house-photos` | **BARU** — multipart, hanya `pelanggan` (non-pelanggan → 422) |
+
+### Perubahan Kode
+
+| Aksi | File |
+|---|---|
+| Diubah | `data/api/ApiService.kt`, `data/api/model/TaskModels.kt`, `data/repository/TaskRepository.kt`, `ui/screens/working/WorkingViewModel.kt`, `ui/screens/working/WorkingScreen.kt`, `ui/screens/tasks/TaskDetailViewModel.kt`, `ui/screens/tasks/TaskDetailScreen.kt`, `AndroidManifest.xml`, `app/src/test/.../TaskRepositoryTest.kt` |
+| Baru | `util/ImageCompressor.kt`, `ui/components/AddPhotoButton.kt`, `res/xml/file_paths.xml` |
+
+1. **Model** — `UpdateStatusRequest` + `description: String?`; `RepairPhoto`,
+   `PhotoUploadResponse`; `Task` + `repairPhotos: List<RepairPhoto> = emptyList()` (di akhir).
+2. **API** — dua endpoint `@Multipart` (`uploadRepairPhoto`, `uploadHousePhoto`); part file
+   bernama persis `photo`, `caption` opsional.
+3. **`ImageCompressor`** — `content://` Uri → JPEG <5 MB: down-sample saat decode (≤1600 px) +
+   koreksi rotasi EXIF + turunkan kualitas bertahap; `@ApplicationContext`, di `Dispatchers.IO`.
+4. **Repository** — `updateStatus(..., description)`; `uploadRepairPhoto`/`uploadHousePhoto`
+   (kompres → multipart → `safeApiCall` → muat ulang detail di ViewModel).
+5. **`AddPhotoButton`** — komponen reusable: dialog pilih Kamera/Galeri; kamera via
+   `TakePicture` + `FileProvider` (cache `images/`), galeri via Photo Picker.
+6. **UI** — Working: tombol unggah bukti + dialog "Selesaikan Tugas" (field catatan). Detail:
+   galeri `repair_photos` (caption di bawah thumbnail) + tombol unggah bukti (semua kategori);
+   tombol unggah foto rumah hanya saat `category == "pelanggan"`. `HousePhotoGallery` di-refaktor
+   jadi `PhotoGallery`/`RepairPhotoGallery`/`EnlargedPhotoDialog` reusable.
+7. **Manifest** — `FileProvider` (`${applicationId}.fileprovider`) + `uses-feature` kamera opsional.
+
+### Gotcha / Risiko & Mitigasi
+
+1. **Multipart, bukan JSON; nama part wajib `photo`** — diset di `ApiService`.
+2. **File mentah bisa >5 MB → 422** — selalu lewat `ImageCompressor` dulu.
+3. **Foto rumah di tugas non-pelanggan → 422** — tombol hanya tampil saat `pelanggan`; error
+   tetap ditangani via `message` backend.
+4. **Rotasi EXIF** — foto kamera bisa miring; dikoreksi via `ExifInterface` sebelum kirim.
+5. **Kompatibilitas unit test** — `repairPhotos` di akhir + default → konstruksi `Task(...)`
+   posisional di test lama tetap valid; `TaskRepositoryImpl` kini butuh `ImageCompressor`
+   (test pakai `mockk`).
+6. **Idempotent 200** — bila status tak berubah, `description` tak tersimpan; bukan error.
+
+### BELUM Termasuk (jangan dibangun dulu)
+
+- Pendaftaran pelanggan baru oleh teknisi (`POST /api/customers`) — Rencana #4, menunggu
+  persetujuan dosen; endpoint belum ada.
+- Hapus/edit caption foto yang sudah diunggah.
+
+### Verifikasi
+
+- `.\gradlew.bat :app:compileEmulatorDebugKotlin --console=plain` → hijau.
+- `.\gradlew.bat :app:testEmulatorDebugUnitTest --console=plain` → 56 test lulus.
+- `.\gradlew.bat :app:assembleEmulatorDebug --console=plain` → APK terbentuk.
+
+### Status
+
+- [x] Model/DTO (`description`, `RepairPhoto`, `PhotoUploadResponse`, `Task.repairPhotos`)
+- [x] API multipart (`uploadRepairPhoto`, `uploadHousePhoto`)
+- [x] `ImageCompressor` + `AddPhotoButton` + `FileProvider`
+- [x] Repository + ViewModel (catatan + unggah + refresh)
+- [x] UI: Working (dialog catatan + unggah bukti), Detail (galeri + unggah bukti/rumah)
+- [x] Verifikasi: compile + 56 test + assemble hijau
+- [ ] Uji end-to-end: catatan tersimpan di work log; foto bukti muncul di `repair_photos`; foto
+      rumah muncul di `house_photos`; 422 foto rumah pada tugas non-pelanggan; kamera & galeri
+      di perangkat fisik dengan backend Laravel berjalan

@@ -1,5 +1,6 @@
 package com.skynet.monitoring.ui.screens.working
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.skynet.monitoring.data.api.model.StatusAction
@@ -23,6 +24,7 @@ import javax.inject.Inject
 sealed interface WorkingEvent {
     /** Status berhasil diubah ke done → stop GPS & kembali ke daftar tugas. */
     data object Finished : WorkingEvent
+    data class ShowMessage(val message: String) : WorkingEvent
     data class ShowError(val message: String) : WorkingEvent
 }
 
@@ -42,6 +44,9 @@ class WorkingViewModel @Inject constructor(
 
     private val _isFinishing = MutableStateFlow(false)
     val isFinishing: StateFlow<Boolean> = _isFinishing.asStateFlow()
+
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
 
     init {
         load()
@@ -67,14 +72,31 @@ class WorkingViewModel @Inject constructor(
         }
     }
 
-    /** Tombol "Tandai Selesai": kirim done, lalu picu stop GPS & kembali ke daftar tugas. */
-    fun finishRepair() {
+    /**
+     * Tombol "Tandai Selesai": kirim done (beserta [note] catatan pekerjaan opsional), lalu picu
+     * stop GPS & kembali ke daftar tugas.
+     */
+    fun finishRepair(note: String? = null) {
         viewModelScope.launch {
             _isFinishing.value = true
-            taskRepository.updateStatus(taskId, StatusAction.FINISH)
+            taskRepository.updateStatus(taskId, StatusAction.FINISH, note)
                 .onSuccess { emitEvent(WorkingEvent.Finished) }
                 .onFailure { emitEvent(WorkingEvent.ShowError(it.message ?: "Gagal menyelesaikan tugas")) }
             _isFinishing.value = false
+        }
+    }
+
+    /** Unggah foto bukti pekerjaan dari [uri] (kamera/galeri), lalu muat ulang detail. */
+    fun uploadRepairPhoto(uri: Uri) {
+        viewModelScope.launch {
+            _isUploading.value = true
+            taskRepository.uploadRepairPhoto(taskId, uri)
+                .onSuccess {
+                    emitEvent(WorkingEvent.ShowMessage("Foto bukti diunggah"))
+                    load()
+                }
+                .onFailure { emitEvent(WorkingEvent.ShowError(it.message ?: "Gagal mengunggah foto")) }
+            _isUploading.value = false
         }
     }
 }

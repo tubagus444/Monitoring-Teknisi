@@ -29,6 +29,7 @@ data class Task(
     @SerializedName("ip_address") val ipAddress: String? = null,
     @SerializedName("subscription_package") val subscriptionPackage: String? = null,
     @SerializedName("house_photos") val housePhotos: List<String> = emptyList(),
+    @SerializedName("repair_photos") val repairPhotos: List<RepairPhoto> = emptyList(),
 ) {
     /** Judul tampilan aman-null: [headline] bila ada, jatuh ke [customer], lalu placeholder. */
     val displayTitle: String
@@ -50,9 +51,32 @@ data class TaskDetailResponse(
     @SerializedName("data") val data: Task,
 )
 
-/** Body update status. Diisi dari [StatusAction.apiValue] (lihat status mapping di CLAUDE.md). */
+/**
+ * Body update status. [status] diisi dari [StatusAction.apiValue] (lihat status mapping di
+ * CLAUDE.md). [description] = catatan pekerjaan opsional (maks 1000 char); `null` → tidak dikirim
+ * (Gson meng-omit field null secara default).
+ */
 data class UpdateStatusRequest(
     @SerializedName("status") val status: String,
+    @SerializedName("description") val description: String? = null,
+)
+
+/**
+ * Foto bukti hasil kerja (semua kategori). Berbeda dari [Task.housePhotos] yang hanya berisi URL
+ * string — di sini tiap foto adalah objek dengan caption & teknisi pengunggah.
+ * Muncul di endpoint DETAIL pada field `repair_photos` (urut naik waktu unggah).
+ */
+data class RepairPhoto(
+    @SerializedName("url") val url: String,
+    @SerializedName("caption") val caption: String? = null,
+    @SerializedName("technician") val technician: String? = null,
+    @SerializedName("uploaded_at") val uploadedAt: String? = null,
+)
+
+/** Respons 201 dari unggah foto (bukti pekerjaan & rumah pelanggan). */
+data class PhotoUploadResponse(
+    @SerializedName("message") val message: String?,
+    @SerializedName("data") val data: RepairPhoto?,
 )
 
 data class UpdateStatusResponse(

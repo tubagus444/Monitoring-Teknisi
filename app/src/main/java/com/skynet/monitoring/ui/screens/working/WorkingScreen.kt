@@ -3,6 +3,7 @@ package com.skynet.monitoring.ui.screens.working
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -27,10 +29,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.service.LocationService
+import com.skynet.monitoring.ui.components.AddPhotoButton
 import com.skynet.monitoring.ui.components.LoadingView
 import com.skynet.monitoring.util.UiState
 
@@ -61,6 +66,7 @@ fun WorkingScreen(
     val taskState by viewModel.task.collectAsStateWithLifecycle()
     val elapsed by viewModel.elapsedSeconds.collectAsStateWithLifecycle()
     val isFinishing by viewModel.isFinishing.collectAsStateWithLifecycle()
+    val isUploading by viewModel.isUploading.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -92,6 +98,7 @@ fun WorkingScreen(
                     LocationService.stop(context)
                     onFinished()
                 }
+                is WorkingEvent.ShowMessage -> snackbarHostState.showSnackbar(event.message)
                 is WorkingEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -133,7 +140,9 @@ fun WorkingScreen(
                 task = state.data,
                 elapsed = elapsed,
                 isFinishing = isFinishing,
+                isUploading = isUploading,
                 onFinish = viewModel::finishRepair,
+                onUploadPhoto = viewModel::uploadRepairPhoto,
                 modifier = Modifier.padding(innerPadding),
             )
         }
@@ -145,9 +154,13 @@ private fun WorkingContent(
     task: Task,
     elapsed: Long,
     isFinishing: Boolean,
-    onFinish: () -> Unit,
+    isUploading: Boolean,
+    onFinish: (String?) -> Unit,
+    onUploadPhoto: (Uri) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var showFinishDialog by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -215,8 +228,18 @@ private fun WorkingContent(
 
         Spacer(Modifier.weight(1f))
 
+        // Unggah foto bukti pekerjaan (sebelum/sesudah) selama perbaikan berlangsung.
+        AddPhotoButton(
+            text = "Tambah Foto Bukti",
+            enabled = !isUploading,
+            onImagePicked = onUploadPhoto,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+        )
+
         Button(
-            onClick = onFinish,
+            onClick = { showFinishDialog = true },
             enabled = !isFinishing,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -236,6 +259,50 @@ private fun WorkingContent(
             }
         }
     }
+
+    if (showFinishDialog) {
+        FinishDialog(
+            onDismiss = { showFinishDialog = false },
+            onConfirm = { note ->
+                showFinishDialog = false
+                onFinish(note)
+            },
+        )
+    }
+}
+
+/** Dialog konfirmasi selesai dengan field catatan pekerjaan opsional (maks 1000 char). */
+@Composable
+private fun FinishDialog(onDismiss: () -> Unit, onConfirm: (String?) -> Unit) {
+    var note by remember { mutableStateOf("") }
+    val maxLength = 1000
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Selesaikan Tugas") },
+        text = {
+            Column {
+                Text("Tambahkan ringkasan hasil kerja (opsional).")
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { if (it.length <= maxLength) note = it },
+                    label = { Text("Catatan pekerjaan") },
+                    minLines = 3,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(note.ifBlank { null }) }) {
+                Text("Tandai Selesai")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal") }
+        },
+    )
 }
 
 /** Format detik → HH:MM:SS. */

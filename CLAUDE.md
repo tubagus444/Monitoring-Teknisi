@@ -145,7 +145,7 @@ app/src/main/java/com/skynet/monitoring/
 │   │   └── profile/
 │   │       ├── ProfileScreen.kt
 │   │       └── ProfileViewModel.kt
-│   ├── components/              # Composable reusable: StatusBadge, CategoryBadge, TaskCard, BrandLogo, StateViews
+│   ├── components/              # Composable reusable: StatusBadge, CategoryBadge, TaskCard, BrandLogo, StateViews, AddPhotoButton
 │   └── theme/
 │       ├── Theme.kt
 │       ├── Color.kt
@@ -159,7 +159,8 @@ app/src/main/java/com/skynet/monitoring/
     ├── WorkDuration.kt          # Hitung durasi pengerjaan
     ├── UiState.kt               # sealed interface UiState<out T>
     ├── ApiCall.kt               # safeApiCall — wrap network call → Result
-    └── UiStateLoader.kt         # collectResult() — load()/refresh() ke UiState
+    ├── UiStateLoader.kt         # collectResult() — load()/refresh() ke UiState
+    └── ImageCompressor.kt       # content:// Uri → JPEG <5MB MultipartBody.Part (EXIF-aware)
 ```
 
 ## Kontrak API Backend
@@ -281,6 +282,14 @@ Response 200:
     "house_photos": [
       "http://10.0.2.2:8000/storage/customer-photos/demo.jpg"
     ],
+    "repair_photos": [
+      {
+        "url": "http://10.0.2.2:8000/storage/report-photos/xyz.jpg",
+        "caption": "Kondisi sesudah",
+        "technician": "Budi",
+        "uploaded_at": "2025-06-01T10:15:00+07:00"
+      }
+    ],
     "work_logs": [
       {
         "status": "ditugaskan",
@@ -300,13 +309,18 @@ Response 200:
 > (sudah aktif). Detail tugas **adaptif per kategori**: `pelanggan` → tampilkan kartu kontak
 > (customer, phone dgn aksi telepon/WhatsApp, ip_address, subscription_package) + galeri
 > `house_photos`; `jaringan`/`pemeliharaan` → sembunyikan kartu & galeri (cukup headline + address).
->
-> Belum ada (jangan di-scaffold): upload foto rumah dari Android & fitur catatan/bukti pekerjaan.
+
+> **`repair_photos` (DETAIL saja).** Array **objek** `{url, caption, technician, uploaded_at}` —
+> foto **bukti hasil kerja**, berlaku semua kategori (beda dari `house_photos` yang hanya URL string
+> & khusus pelanggan). Urut naik waktu unggah; `[]` bila kosong. `caption`/`uploaded_at`/`technician`
+> bisa `null`. Di model Kotlin: `RepairPhoto`. Tampilkan sebagai galeri (caption di bawah thumbnail)
+> di Detail Tugas. Diunggah lewat endpoint foto di bawah; setelah unggah sukses, app **memuat ulang**
+> detail agar galeri ter-refresh.
 
 **Update Status Tugas**
 ```
 POST /api/tasks/{id}/status
-Body: { "status": "in_progress" }    // atau "done"
+Body: { "status": "in_progress", "description": "Ganti konektor RJ45 & rapikan kabel." }
 
 Response 200: { "message": "Status diperbarui", "status": "sedang_memperbaiki" }
 Response 422: { "message": "Perubahan status tidak valid dari status saat ini" }
@@ -322,6 +336,47 @@ Response 422: { "message": "Perubahan status tidak valid dari status saat ini" }
 >
 > Transisi **hanya searah**: `ditugaskan` → `in_progress` → `done`.
 > Loncat atau mundur akan dibalas `422`.
+
+> **`description` (opsional, maks 1000 char) = catatan pekerjaan.** Boleh dikirim bersama
+> `in_progress` atau `done` (paling relevan saat `done` sebagai rangkuman hasil). Kosong/blank →
+> di-omit (field `null`, tetap sukses). Tersimpan di `work_logs[].description`. App mengirimnya dari
+> dialog "Selesaikan Tugas" di layar Working (field multiline). **Idempotent:** bila status sudah
+> sama (tak ada transisi), server balas `200` tanpa membuat work log baru → `description` tidak
+> tersimpan; **perlakukan sebagai sukses**, bukan error.
+
+**Unggah Foto Bukti Pekerjaan** — semua kategori, boleh berkali-kali (append)
+```
+POST /api/tasks/{id}/photos
+Content-Type: multipart/form-data
+  photo   = <file gambar>   (WAJIB, jpg/png, maks 5 MB)
+  caption = "Kondisi sesudah" (opsional, maks 255)
+
+Response 201: { "message": "...", "data": { "id": 12, "url": "...", "caption": "..." } }
+Response 422: bukan gambar / > 5 MB
+Response 404: tugas bukan milik teknisi ini
+```
+
+**Unggah Foto Rumah Pelanggan** — HANYA kategori `pelanggan`
+```
+POST /api/tasks/{id}/house-photos
+Content-Type: multipart/form-data
+  photo   = <file gambar>   (WAJIB, maks 5 MB)
+  caption = "Tampak depan"  (opsional, maks 255)
+
+Response 201: bentuk sama dgn endpoint foto bukti
+Response 422: "bukan laporan pelanggan, tidak ada rumah untuk difoto" (tugas non-pelanggan)
+```
+
+> **Kedua endpoint foto = `multipart/form-data`, bukan JSON. Nama part file WAJIB `photo`.**
+> Hasil muncul kembali di detail: foto bukti → `repair_photos`; foto rumah → `house_photos`.
+> - Tombol unggah: foto **bukti** di layar Detail **dan** Working (semua kategori); foto **rumah**
+>   hanya di Detail saat `category == "pelanggan"`.
+> - Sumber foto: **kamera** (ACTION_IMAGE_CAPTURE via `FileProvider`, otoritas
+>   `${applicationId}.fileprovider`, tanpa permission `CAMERA`) **atau galeri** (Photo Picker, tanpa
+>   izin). Komponen reusable: `ui/components/AddPhotoButton`.
+> - Foto **dikompres dulu** ke JPEG < 5 MB (down-sample + koreksi EXIF) di `util/ImageCompressor`
+>   sebelum dikirim — jangan kirim file mentah (bisa > 5 MB → 422).
+> - Tangani `422`/`404` terpisah dari error jaringan (pakai `message` dari backend via `safeApiCall`).
 
 ---
 
@@ -394,15 +449,15 @@ Response 200: { "message": "Notifikasi ditandai sudah dibaca" }
 |---|---|---|---|
 | 1 | Login | `login` | Form email + password. Simpan token ke DataStore. Kirim FCM token setelah login berhasil. |
 | 2 | Daftar Tugas | `tasks` | List tugas aktif. Tab utama bottom navigation. Pull-to-refresh + auto-refresh tiap `ON_RESUME` (agar tugas baru muncul tanpa restart app). |
-| 3 | Detail Tugas | `tasks/{id}` | Info lengkap (judul = `headline`), badge kategori, timeline work logs, tombol "Mulai Memperbaiki" / "Selesai". **Adaptif**: kategori `pelanggan` → kartu kontak (telepon/WhatsApp) + galeri `house_photos`; non-pelanggan → tanpa kartu/galeri. |
-| 4 | Sedang Memperbaiki | `tasks/{id}/working` | Layar aktif saat GPS berjalan. Tampilkan nama pelanggan, alamat, timer durasi, status live. Tombol "Tandai Selesai". |
+| 3 | Detail Tugas | `tasks/{id}` | Info lengkap (judul = `headline`), badge kategori, timeline work logs, galeri `repair_photos` + tombol unggah foto bukti (semua kategori), tombol "Mulai Memperbaiki" / "Selesai". **Adaptif**: kategori `pelanggan` → kartu kontak (telepon/WhatsApp) + galeri `house_photos` + tombol unggah foto rumah; non-pelanggan → tanpa kartu/galeri rumah. |
+| 4 | Sedang Memperbaiki | `tasks/{id}/working` | Layar aktif saat GPS berjalan. Tampilkan nama pelanggan, alamat, timer durasi, status live, tombol unggah foto bukti. Tombol "Tandai Selesai" → dialog dgn field catatan pekerjaan opsional. |
 | 5 | Notifikasi | `notifications` | Daftar notifikasi terbaru, indikator belum-baca. Tap → tandai dibaca. |
 | 6 | Profil | `profile` | Nama + email user. Tombol logout. |
 
 ### Logika Tombol di Detail Tugas
 
 - Status `ditugaskan` → tampilkan tombol **"Mulai Memperbaiki"** → kirim `in_progress` → start `LocationService` → navigasi ke `working`
-- Status `sedang_memperbaiki` → tampilkan tombol **"Tandai Selesai"** di layar Working → kirim `done` → stop `LocationService` → kembali ke Daftar Tugas
+- Status `sedang_memperbaiki` → tampilkan tombol **"Tandai Selesai"** di layar Working → buka dialog (catatan pekerjaan opsional) → kirim `done` (+ `description`) → stop `LocationService` → kembali ke Daftar Tugas
 
 ## GPS Foreground Service
 
@@ -564,4 +619,5 @@ Unit test (host JVM, di `app/src/test/`) memakai JUnit4 + `kotlinx-coroutines-te
 - Uji ViewModel: `runTest(mainDispatcherRule.dispatcher) { … }` agar scheduler dibagi dengan
   `viewModelScope`; uji `events` dengan turbine; panggil `vm.viewModelScope.cancel()` di `finally`
   bila VM punya coroutine menetap (timer / `stateIn`), supaya `runTest` selesai bersih.
-- Cakupan saat ini: semua repository + `safeApiCall` + `DateUtils` + `WorkDuration` + semua ViewModel (51 test).
+- Cakupan saat ini: semua repository (termasuk catatan `description` & unggah foto bukti/rumah) +
+  `safeApiCall` + `DateUtils` + `WorkDuration` + semua ViewModel (56 test).

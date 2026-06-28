@@ -16,6 +16,10 @@
     <!-- Notifikasi (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Kamera dipakai untuk foto bukti pekerjaan & rumah pelanggan (opsional; via ACTION_IMAGE_CAPTURE,
+         tanpa permission CAMERA agar tak perlu prompt izin). -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
     <application
         android:name=".MonitoringApp"
         android:allowBackup="true"
@@ -59,6 +63,17 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="fcm_default" />
+
+        <!-- FileProvider: content-Uri untuk file tangkapan kamera (foto bukti & rumah) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>
