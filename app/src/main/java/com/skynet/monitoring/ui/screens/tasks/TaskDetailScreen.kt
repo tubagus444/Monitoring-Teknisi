@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -127,8 +128,8 @@ private fun DetailContent(
     isUploading: Boolean,
     onStartRepair: () -> Unit,
     onContinueRepair: () -> Unit,
-    onUploadRepairPhoto: (Uri) -> Unit,
-    onUploadHousePhoto: (Uri) -> Unit,
+    onUploadRepairPhoto: (Uri, String?) -> Unit,
+    onUploadHousePhoto: (Uri, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -415,7 +416,7 @@ private fun RepairPhotoGallery(photos: List<RepairPhoto>, modifier: Modifier = M
     LazyRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(photos.size) { index ->
             val photo = photos[index]
-            Column(modifier = Modifier.size(120.dp)) {
+            Column(modifier = Modifier.width(120.dp)) {
                 AsyncImage(
                     model = photo.url,
                     contentDescription = photo.caption ?: "Foto bukti ${index + 1}",

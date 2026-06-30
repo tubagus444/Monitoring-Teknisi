@@ -86,11 +86,11 @@ class WorkingViewModel @Inject constructor(
         }
     }
 
-    /** Unggah foto bukti pekerjaan dari [uri] (kamera/galeri), lalu muat ulang detail. */
-    fun uploadRepairPhoto(uri: Uri) {
+    /** Unggah foto bukti pekerjaan dari [uri] (kamera/galeri) + [caption] opsional, lalu muat ulang detail. */
+    fun uploadRepairPhoto(uri: Uri, caption: String?) {
         viewModelScope.launch {
             _isUploading.value = true
-            taskRepository.uploadRepairPhoto(taskId, uri)
+            taskRepository.uploadRepairPhoto(taskId, uri, caption)
                 .onSuccess {
                     emitEvent(WorkingEvent.ShowMessage("Foto bukti diunggah"))
                     load()

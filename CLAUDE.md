@@ -384,6 +384,11 @@ Response 422: "bukan laporan pelanggan, tidak ada rumah untuk difoto" (tugas non
 > - Sumber foto: **kamera** (ACTION_IMAGE_CAPTURE via `FileProvider`, otoritas
 >   `${applicationId}.fileprovider`, tanpa permission `CAMERA`) **atau galeri** (Photo Picker, tanpa
 >   izin). Komponen reusable: `ui/components/AddPhotoButton`.
+> - **Pratinjau sebelum kirim:** setelah ambil/pilih foto, `AddPhotoButton` menampilkan dialog
+>   pratinjau (thumbnail + kolom **"Keterangan (opsional)"**, maks 255) — upload baru jalan saat
+>   "Kirim", "Batal" membuang foto tanpa mengunggah. Callback `onImagePicked: (Uri, String?) ->`
+>   mengoper caption (null bila kosong) hingga ke `@Part("caption")`. Ini mencegah salah foto
+>   terlanjur terunggah (belum ada endpoint hapus foto di backend — upload bersifat append).
 > - Foto **dikompres dulu** ke JPEG < 5 MB (down-sample + koreksi EXIF) di `util/ImageCompressor`
 >   sebelum dikirim — jangan kirim file mentah (bisa > 5 MB → 422).
 > - Tangani `422`/`404` terpisah dari error jaringan (pakai `message` dari backend via `safeApiCall`).

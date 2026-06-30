@@ -47,14 +47,14 @@ class TaskDetailViewModel @Inject constructor(
 
     fun load() = _uiState.collectResult(viewModelScope) { taskRepository.getTaskDetail(taskId) }
 
-    /** Unggah foto bukti pekerjaan (semua kategori) dari [uri], lalu muat ulang detail. */
-    fun uploadRepairPhoto(uri: Uri) = upload("Foto bukti diunggah") {
-        taskRepository.uploadRepairPhoto(taskId, uri)
+    /** Unggah foto bukti pekerjaan (semua kategori) dari [uri] + [caption] opsional, lalu muat ulang detail. */
+    fun uploadRepairPhoto(uri: Uri, caption: String?) = upload("Foto bukti diunggah") {
+        taskRepository.uploadRepairPhoto(taskId, uri, caption)
     }
 
-    /** Unggah foto rumah pelanggan (hanya kategori pelanggan) dari [uri], lalu muat ulang detail. */
-    fun uploadHousePhoto(uri: Uri) = upload("Foto rumah diunggah") {
-        taskRepository.uploadHousePhoto(taskId, uri)
+    /** Unggah foto rumah pelanggan (hanya kategori pelanggan) dari [uri] + [caption] opsional, lalu muat ulang detail. */
+    fun uploadHousePhoto(uri: Uri, caption: String?) = upload("Foto rumah diunggah") {
+        taskRepository.uploadHousePhoto(taskId, uri, caption)
     }
 
     private fun upload(successMessage: String, block: suspend () -> Result<Unit>) {

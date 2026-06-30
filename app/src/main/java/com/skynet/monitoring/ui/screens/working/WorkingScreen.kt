@@ -156,7 +156,7 @@ private fun WorkingContent(
     isFinishing: Boolean,
     isUploading: Boolean,
     onFinish: (String?) -> Unit,
-    onUploadPhoto: (Uri) -> Unit,
+    onUploadPhoto: (Uri, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showFinishDialog by remember { mutableStateOf(false) }
