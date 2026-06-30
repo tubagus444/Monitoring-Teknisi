@@ -87,6 +87,15 @@ sebagai `BuildConfig.BASE_URL`:
 Retrofit.Builder().baseUrl(BuildConfig.BASE_URL)
 ```
 
+> **Override alamat server saat tes (DEBUG saja).** Agar tak perlu rebuild tiap ganti IP/jaringan,
+> layar Login menampilkan field **"Alamat Server"** (mis. `192.168.0.105:8000` atau
+> `https://api.skynet.id`). Nilainya disimpan di DataStore (key `server_url`) dan
+> `ServerUrlInterceptor` menimpa **skema/host/port** tiap request (path `/api/...` dari `BASE_URL`
+> tetap). Berlaku langsung tanpa restart; kosongkan field → kembali ke `BuildConfig.BASE_URL`.
+> Field + interceptor **hanya aktif di build debug** (`BuildConfig.DEBUG`) — build release selalu
+> pakai `BASE_URL` resmi & tak bisa ditimpa. `UserPreferences.clear()` (logout) sengaja **tidak**
+> menghapus `server_url`. Normalisasi input ada di `normalizeServerUrl()`.
+
 ### Firebase
 
 - Download `google-services.json` dari Firebase Console (project yang sama dengan backend)
@@ -106,6 +115,7 @@ app/src/main/java/com/skynet/monitoring/
 │   ├── api/
 │   │   ├── ApiService.kt        # Semua endpoint Retrofit (interface)
 │   │   ├── AuthInterceptor.kt   # Sisipkan header Authorization + Accept
+│   │   ├── ServerUrlInterceptor.kt # (DEBUG) Override host/port server dari field Login
 │   │   └── model/               # Data class request & response
 │   │       ├── AuthModels.kt
 │   │       ├── TaskModels.kt

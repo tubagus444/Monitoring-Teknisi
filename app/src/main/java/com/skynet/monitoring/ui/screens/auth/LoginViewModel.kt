@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.messaging.FirebaseMessaging
+import com.skynet.monitoring.BuildConfig
+import com.skynet.monitoring.data.local.UserPreferences
 import com.skynet.monitoring.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +29,7 @@ sealed interface LoginUiState {
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val userPreferences: UserPreferences,
 ) : ViewModel() {
 
     var email by mutableStateOf("")
@@ -34,11 +37,25 @@ class LoginViewModel @Inject constructor(
     var password by mutableStateOf("")
         private set
 
+    /**
+     * (DEBUG saja) Alamat server yang diketik penguji. Diprefill dari nilai tersimpan;
+     * disimpan saat login. Field-nya hanya tampil di build debug (lihat LoginScreen).
+     */
+    var serverUrl by mutableStateOf("")
+        private set
+
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
+    init {
+        if (BuildConfig.DEBUG) {
+            viewModelScope.launch { serverUrl = userPreferences.getServerUrl().orEmpty() }
+        }
+    }
+
     fun onEmailChange(value: String) { email = value }
     fun onPasswordChange(value: String) { password = value }
+    fun onServerUrlChange(value: String) { serverUrl = value }
 
     fun login() {
         if (email.isBlank() || password.isBlank()) {
@@ -47,6 +64,8 @@ class LoginViewModel @Inject constructor(
         }
         _uiState.value = LoginUiState.Loading
         viewModelScope.launch {
+            // Simpan alamat server sebelum login agar request login langsung menuju server itu.
+            if (BuildConfig.DEBUG) userPreferences.saveServerUrl(serverUrl)
             authRepository.login(email.trim(), password)
                 .onSuccess {
                     registerFcmToken()

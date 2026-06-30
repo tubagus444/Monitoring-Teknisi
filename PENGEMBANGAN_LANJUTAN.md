@@ -15,6 +15,7 @@
 |---|---|---|---|
 | 1 | [Penyesuaian Modul Pelanggan](#iterasi-1--penyesuaian-modul-pelanggan) | 2026-06-27 | ✅ Selesai (kode) |
 | 2 | [Catatan & Bukti Pekerjaan + Foto Rumah](#iterasi-2--catatan--bukti-pekerjaan--foto-rumah) | 2026-06-28 | ✅ Selesai (kode) |
+| 3 | [Override Alamat Server saat Tes (DEBUG)](#iterasi-3--override-alamat-server-saat-tes-debug) | 2026-06-30 | ✅ Selesai (kode) |
 
 > Tambahkan baris baru di tabel ini setiap memulai iterasi, lalu tulis detailnya memakai
 > **template** di bawah.
@@ -249,3 +250,91 @@ pelanggan. Detail tugas kini juga mengembalikan `repair_photos`. Endpoint lama t
 - [ ] Uji end-to-end: catatan tersimpan di work log; foto bukti muncul di `repair_photos`; foto
       rumah muncul di `house_photos`; 422 foto rumah pada tugas non-pelanggan; kamera & galeri
       di perangkat fisik dengan backend Laravel berjalan
+
+---
+
+## Iterasi 3 — Override Alamat Server saat Tes (DEBUG)
+
+> Status: ✅ Selesai (kode) — `compileEmulatorDebugKotlin` hijau, 60 unit test lulus.
+> Sisa = uji end-to-end dengan backend Laravel berjalan.
+
+### Konteks
+
+Selama pengujian, `BASE_URL` di-*bake* ke APK per product flavor (`device` membaca `deviceBaseUrl`
+dari `local.properties`). Setiap kali IP laptop berubah (DHCP) atau pindah jaringan, penguji harus
+edit `local.properties` **dan rebuild + reinstall APK** — ribet. Kebutuhan: cukup satu jaringan,
+tanpa konfigurasi build ulang tiap ganti IP. Sifatnya **alat bantu masa tes** — saat produksi
+(backend punya domain/HTTPS) tidak diperlukan, jadi harus bisa hilang otomatis tanpa hapus kode.
+
+### Keputusan yang Dikonfirmasi
+
+| Topik | Keputusan | Alasan |
+|---|---|---|
+| **Cara override** | Field "Alamat Server" di layar **Login** | Diisi sebelum login; satu titik, tak menyebar ke banyak layar. |
+| **Mekanisme** | `ServerUrlInterceptor` menimpa **skema/host/port** tiap request | Tak perlu rebuild Retrofit/restart; path `/api/...` dari `BASE_URL` tetap. |
+| **Default** | Kosong → pakai `BuildConfig.BASE_URL` | Tanpa override, app jalan persis seperti sebelumnya. |
+| **Gating produksi** | Field + interceptor hanya saat `BuildConfig.DEBUG` | Build release otomatis pakai `BASE_URL` resmi; **tak ada kode yang perlu dihapus**. |
+| **IP vs domain** | Satu field menerima keduanya | `192.168.0.105:8000` (IP tes) atau `https://api.skynet.id` (produksi) — base URL hanyalah string. |
+| **Penyimpanan** | DataStore key `server_url` | Persisten; prefill di Login; `clear()` logout sengaja **tidak** menghapusnya. |
+
+### Perubahan Kontrak API
+
+Tidak ada. Murni perubahan klien (cara menentukan host tujuan request). Semua endpoint & payload
+tetap.
+
+### Perubahan Kode
+
+| Aksi | File |
+|---|---|
+| Diubah | `data/local/UserPreferences.kt`, `di/NetworkModule.kt`, `ui/screens/auth/LoginViewModel.kt`, `ui/screens/auth/LoginScreen.kt`, `app/src/test/.../LoginViewModelTest.kt`, `CLAUDE.md` |
+| Baru | `data/api/ServerUrlInterceptor.kt`, `app/src/test/.../ServerUrlInterceptorTest.kt` |
+
+1. **`ServerUrlInterceptor`** (baru) — baca override dari DataStore (blocking, konsisten dgn
+   `AuthInterceptor`); bila ada, timpa `scheme/host/port` URL request, path tetap. Plus top-level
+   `normalizeServerUrl()`: terima `host:port` / `http(s)://…`, tanpa skema → default `http://`,
+   blank/invalid → `null`.
+2. **`UserPreferences`** — key `server_url` + `getServerUrl()`/`saveServerUrl()` (blank → hapus).
+   `clear()` diubah: hapus `TOKEN` + `USER` saja (bukan `it.clear()`) agar alamat tes bertahan
+   setelah logout.
+3. **`NetworkModule`** — `serverUrlInterceptor` ditambahkan ke OkHttp **hanya bila
+   `BuildConfig.DEBUG`**.
+4. **`LoginViewModel`** — state `serverUrl` (prefill dari DataStore di `init`, gated DEBUG);
+   disimpan sebelum `login()` agar request login langsung menuju server itu.
+5. **`LoginScreen`** — `OutlinedTextField` "Alamat Server (debug)" di balik `if (BuildConfig.DEBUG)`,
+   placeholder + supporting text contoh format.
+
+### Gotcha / Risiko & Mitigasi
+
+1. **Override berlaku langsung tanpa restart** — interceptor membaca nilai terbaru tiap request;
+   ganti server di Login langsung dipakai login berikutnya.
+2. **Hanya menimpa authority (skema/host/port)** — mengandalkan path `/api/` sama di semua base
+   URL; konsisten dgn kontrak (semua `BASE_URL` berakhiran `/api/`).
+3. **Cleartext HTTP vs HTTPS** — IP tes pakai HTTP (`usesCleartextTraffic="true"` sudah aktif);
+   domain produksi pakai HTTPS. Di release, cleartext idealnya dimatikan (di luar lingkup iterasi).
+4. **Logout tak menghapus server** — disengaja (penguji tak mengetik ulang); didokumentasikan di
+   `clear()`.
+5. **Kompatibilitas unit test** — `LoginViewModel` kini butuh `UserPreferences` (test pakai
+   `mockk(relaxed = true)`).
+
+### BELUM Termasuk (jangan dibangun dulu)
+
+- Validasi/ping koneksi ke server sebelum login (cek host hidup).
+- Mematikan `usesCleartextTraffic` khusus build release + isi `BASE_URL` domain produksi —
+  dilakukan saat backend sudah punya domain/HTTPS, bukan sekarang.
+
+### Verifikasi
+
+- `.\gradlew.bat :app:compileEmulatorDebugKotlin --console=plain` → hijau.
+- `.\gradlew.bat :app:testEmulatorDebugUnitTest --console=plain` → 60 test lulus (4 baru:
+  `normalizeServerUrl`).
+
+### Status
+
+- [x] `ServerUrlInterceptor` + `normalizeServerUrl`
+- [x] `UserPreferences` (key `server_url`, `clear()` selektif)
+- [x] `NetworkModule` (interceptor gated DEBUG)
+- [x] `LoginViewModel` + `LoginScreen` (field gated DEBUG)
+- [x] Unit test (`ServerUrlInterceptorTest`, `LoginViewModelTest` disesuaikan)
+- [x] Verifikasi: compile hijau + 60 test lulus
+- [ ] Uji end-to-end: isi IP LAN di Login → login & semua fitur menuju server itu; pindah jaringan
+      → ganti IP tanpa rebuild; build release → field hilang & pakai `BASE_URL`

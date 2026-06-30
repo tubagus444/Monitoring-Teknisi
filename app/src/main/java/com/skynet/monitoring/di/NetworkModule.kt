@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.skynet.monitoring.BuildConfig
 import com.skynet.monitoring.data.api.ApiService
 import com.skynet.monitoring.data.api.AuthInterceptor
+import com.skynet.monitoring.data.api.ServerUrlInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,13 +26,22 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        serverUrlInterceptor: ServerUrlInterceptor,
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
             else HttpLoggingInterceptor.Level.NONE
         }
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+        // Override alamat server HANYA di build debug (alat bantu tes). Build release
+        // selalu pakai BuildConfig.BASE_URL resmi — tak bisa ditimpa.
+        if (BuildConfig.DEBUG) {
+            builder.addInterceptor(serverUrlInterceptor)
+        }
+        return builder
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

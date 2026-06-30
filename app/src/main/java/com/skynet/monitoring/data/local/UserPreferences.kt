@@ -26,6 +26,8 @@ class UserPreferences @Inject constructor(
     private object Keys {
         val TOKEN = stringPreferencesKey("auth_token")
         val USER = stringPreferencesKey("user_json")
+        // (DEBUG saja) Alamat server override yang diisi penguji di layar Login.
+        val SERVER = stringPreferencesKey("server_url")
     }
 
     /** Token reaktif. null → arahkan ke layar Login. */
@@ -40,6 +42,9 @@ class UserPreferences @Inject constructor(
     /** Pembacaan token sekali jalan (dipakai AuthInterceptor). */
     suspend fun getToken(): String? = context.dataStore.data.first()[Keys.TOKEN]
 
+    /** (DEBUG saja) Alamat server override; null/blank → pakai BuildConfig.BASE_URL. */
+    suspend fun getServerUrl(): String? = context.dataStore.data.first()[Keys.SERVER]
+
     suspend fun saveSession(token: String, user: User) {
         context.dataStore.edit { prefs ->
             prefs[Keys.TOKEN] = token
@@ -47,8 +52,22 @@ class UserPreferences @Inject constructor(
         }
     }
 
-    /** Hapus token + user (dipanggil saat logout / token kadaluarsa). */
+    /** (DEBUG saja) Simpan/timpa alamat server. Blank → hapus (kembali ke bawaan). */
+    suspend fun saveServerUrl(url: String) {
+        context.dataStore.edit { prefs ->
+            if (url.isBlank()) prefs.remove(Keys.SERVER) else prefs[Keys.SERVER] = url.trim()
+        }
+    }
+
+    /**
+     * Hapus token + user (dipanggil saat logout / token kadaluarsa).
+     * Sengaja TIDAK menghapus [Keys.SERVER] agar alamat server tes tetap tersimpan
+     * setelah logout (penguji tak perlu mengetik ulang).
+     */
     suspend fun clear() {
-        context.dataStore.edit { it.clear() }
+        context.dataStore.edit { prefs ->
+            prefs.remove(Keys.TOKEN)
+            prefs.remove(Keys.USER)
+        }
     }
 }

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.skynet.monitoring.BuildConfig
 import com.skynet.monitoring.ui.components.BrandLogo
 
 @Composable
@@ -81,6 +82,29 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 32.dp),
             )
+
+            // (DEBUG saja) Alamat server — agar saat tes tak perlu rebuild tiap ganti IP/jaringan.
+            // Otomatis hilang di build release; saat itu app pakai BASE_URL resmi.
+            if (BuildConfig.DEBUG) {
+                OutlinedTextField(
+                    value = viewModel.serverUrl,
+                    onValueChange = viewModel::onServerUrlChange,
+                    label = { Text("Alamat Server (debug)") },
+                    placeholder = { Text("192.168.0.105:8000") },
+                    singleLine = true,
+                    enabled = !isLoading,
+                    supportingText = {
+                        Text("Kosongkan untuk pakai bawaan. Contoh: 192.168.0.105:8000 atau https://api.skynet.id")
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Next,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                )
+            }
 
             OutlinedTextField(
                 value = viewModel.email,
