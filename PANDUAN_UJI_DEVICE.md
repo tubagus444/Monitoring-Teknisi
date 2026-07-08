@@ -1,102 +1,79 @@
 # Panduan Uji Aplikasi di HP Fisik (Uji Akurasi GPS)
 
-Panduan menjalankan aplikasi Monitoring Teknisi di **HP fisik** (bukan emulator) agar GPS
-teruji dengan pergerakan nyata.
-
-## Konsep: Build Variant
-
-Aplikasi punya 2 versi dari kode yang sama, beda alamat backend saja:
-
-| Variant | BASE_URL | Untuk |
-|---|---|---|
-| **emulatorDebug** | `http://10.0.2.2:8000/api/` | Emulator Android Studio |
-| **deviceDebug** | `http://192.168.0.105:8000/api/` (dari `local.properties`) | HP fisik via WiFi |
-
-`10.0.2.2` hanya dimengerti emulator. HP fisik butuh IP asli laptop. Tinggal **pilih** variant,
-tak perlu edit kode.
+Panduan menjalankan aplikasi Monitoring Teknisi di **HP fisik** (bukan emulator) agar GPS teruji dengan pergerakan nyata.
 
 ---
 
-## Tahap 1 — Siapkan backend agar bisa diakses HP
+## Tahap 1 — Siapkan Backend agar Bisa Diakses HP
 
-1. Jalankan Laravel agar mendengar dari semua alamat:
+1. Pastikan laptop dan HP Anda terhubung ke **jaringan Wi-Fi yang sama**.
+2. Cek IP lokal laptop Anda. Buka terminal (PowerShell) dan ketik:
+   ```powershell
+   ipconfig
    ```
-   php artisan serve --host=0.0.0.0 --port=8000
+   *Catat IPv4 Address Anda (biasanya berawalan `192.168.x.x` atau `10.x.x.x`, contoh: `192.168.0.105`).*
+3. Di terminal proyek Laravel (Aplikasi Monitoring), jalankan perintah:
+   ```bash
+   composer dev:mobile
    ```
-2. Tes dari **browser HP** dulu:
+   *(Perintah ini akan menjalankan server di `--host=0.0.0.0` sekaligus menyalakan queue worker).*
+4. **Wajib Tes via Browser HP**: Buka browser di HP Anda (Chrome/Safari) lalu akses:
    ```
    http://192.168.0.105:8000
    ```
-   - Halaman Laravel muncul → jaringan beres, lanjut.
-   - Gagal/loading terus → biasanya **Windows Firewall** memblokir. Izinkan port 8000
-     (atau matikan sementara firewall jaringan "Private").
-
-   > Syarat: HP dan laptop **WiFi yang sama**.
+   - Halaman Laravel muncul → **Jaringan beres, lanjut!**
+   - Loading lama / Connection Refused → Biasanya diblokir **Windows Firewall**. Anda perlu mengizinkan port 8000 atau mematikan sementara firewall untuk jaringan "Private".
 
 ---
 
 ## Tahap 2 — Sambungkan HP ke Android Studio
 
-1. HP: **Settings → About phone → tap "Build number" 7×** untuk buka Developer Options.
-2. **Developer Options → aktifkan "USB Debugging"**.
-3. Colok HP ke laptop via USB.
+1. HP: Buka **Settings → About phone → tap "Build number" 7×** untuk mengaktifkan Developer Options.
+2. Buka **Developer Options → aktifkan "USB Debugging"**.
+3. Colokkan HP ke laptop via kabel USB.
 4. Di HP muncul popup **"Allow USB debugging?"** → centang "Always allow" → **OK**.
-5. Cek di Android Studio pojok kanan atas: nama HP muncul di dropdown perangkat.
-   - Cek via terminal: `adb devices` (HP harus terdaftar, status `device`).
+5. Pastikan nama HP Anda muncul di dropdown perangkat di bagian atas Android Studio.
 
 ---
 
-## Tahap 3 — Pilih variant `deviceDebug`
+## Tahap 3 — Jalankan Aplikasi
 
-1. Android Studio, **pojok kiri bawah**, klik tab **"Build Variants"**
-   (atau menu **View → Tool Windows → Build Variants**).
-2. Di baris modul **`:app`**, ubah "Active Build Variant" dari `emulatorDebug` → **`deviceDebug`**.
-3. Tunggu Gradle sync selesai.
+Anda bisa menggunakan *Build Variant* mana saja (`emulatorDebug` ataupun `deviceDebug`), karena aplikasi ini sudah dilengkapi fitur penggantian URL API secara dinamis!
+
+1. Klik tombol **Run ▶** (hijau) di Android Studio.
+2. Aplikasi akan ter-install dan terbuka di HP Anda.
 
 ---
 
-## Tahap 4 — Jalankan ke HP
+## Tahap 4 — Konfigurasi API di Halaman Login
 
-**Cara A — Android Studio (gampang):**
-- Dropdown perangkat (atas) menunjuk ke **HP Anda**.
-- Tekan **Run ▶** (hijau). Otomatis build + pasang + buka app.
-
-**Cara B — Terminal:**
-```powershell
-.\gradlew.bat :app:installDeviceDebug
-```
-Lalu buka app manual di HP.
+Agar aplikasi Android bisa tersambung ke backend Laravel di laptop:
+1. Saat aplikasi terbuka (berada di Halaman Login), ketuk ikon **Pengaturan (Konfigurasi API)**.
+2. Masukkan URL backend beserta port dan path `/api/`, menggunakan IP laptop Anda tadi.
+   Contoh: `http://192.168.0.105:8000/api/`
+3. Simpan pengaturan. 
+4. Coba login menggunakan akun teknisi. Jika berhasil masuk, berarti koneksi sukses!
 
 ---
 
 ## Tahap 5 — Uji GPS
 
-1. Saat app dibuka pertama kali, **beri izin Lokasi dan Notifikasi**.
-2. HP: pastikan **GPS menyala**, mode akurasi tinggi (Settings → Location).
-3. Login → buka tugas → tekan **"Mulai Memperbaiki"**. Layar Working terbuka,
-   muncul notifikasi persisten "SkyNet — GPS aktif".
-4. **Penting:** app sengaja **hanya kirim lokasi kalau bergerak ≥ 15 meter** (hemat baterai —
-   bukan bug). Supaya data masuk:
-   - **Jalan kaki** beberapa meter sambil layar Working terbuka, atau
-   - Pantau peta web admin — titik teknisi bergerak mengikuti Anda.
-5. Tekan **"Tandai Selesai"** untuk hentikan pengiriman GPS.
+1. Pastikan **GPS menyala** di HP Anda (Settings → Location → Mode Akurasi Tinggi).
+2. Berikan izin **Lokasi (Allow all the time / Allow only while using the app)** dan izin **Notifikasi** ketika diminta.
+3. Buka salah satu tugas laporan, lalu tekan **"Mulai Memperbaiki"**. 
+4. Layar "Working" (Sedang Memperbaiki) akan terbuka, dan akan muncul notifikasi persisten di panel atas layar bahwa *GPS Aktif*.
+5. **Penting:** Aplikasi ini dirancang agar **hanya mengirimkan lokasi ke server jika teknisi berpindah sejauh ≥ 15 meter** (untuk menghemat baterai). 
+   - Untuk melihat perubahan titik di peta web admin, silakan **berjalan kaki/naik motor** menjauhi posisi awal.
+6. Tekan **"Tandai Selesai"** untuk menghentikan pengiriman GPS.
 
 ---
 
-## Saat pindah WiFi (IP laptop berubah)
+## 💡 Tips: Saat Pindah Wi-Fi (IP Laptop Berubah)
 
-1. Cek IP laptop baru:
-   ```powershell
-   Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -like '192.168.*' }
-   ```
-2. Buka **`local.properties`** (root proyek), ganti:
-   ```
-   deviceBaseUrl=http://<IP-BARU>:8000/api/
-   ```
-3. Sync Gradle / build ulang. **Tanpa sentuh kode.**
-
----
-
-## Kembali ke emulator
-
-Di panel **Build Variants**, ubah `:app` kembali ke **`emulatorDebug`**. Selesai.
+Jika Anda berpindah tempat (misal dari kampus ke rumah), IP laptop Anda otomatis akan berubah. 
+**Anda TIDAK perlu build ulang APK-nya dari Android Studio.**
+Cukup ikuti langkah ini:
+1. Cek IP baru laptop Anda.
+2. Pastikan Laravel berjalan (`composer dev:mobile`).
+3. Buka aplikasi di HP, pergi ke halaman **Pengaturan API** di layar Login.
+4. Masukkan IP yang baru. Selesai!
