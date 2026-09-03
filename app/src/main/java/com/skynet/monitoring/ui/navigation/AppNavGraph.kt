@@ -11,21 +11,28 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.skynet.monitoring.MainActivity
+import com.skynet.monitoring.data.repository.TaskRepository
 import com.skynet.monitoring.ui.screens.auth.LoginScreen
 import com.skynet.monitoring.ui.screens.notifications.NotificationScreen
 import com.skynet.monitoring.ui.screens.profile.ProfileScreen
 import com.skynet.monitoring.ui.screens.tasks.TaskDetailScreen
 import com.skynet.monitoring.ui.screens.tasks.TaskListScreen
 import com.skynet.monitoring.ui.screens.working.WorkingScreen
+import kotlinx.coroutines.launch
 
 private data class BottomNavItem(
     val route: String,
@@ -45,6 +52,37 @@ fun AppNavGraph(startDestination: String) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = bottomNavItems.any { it.route == currentRoute }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Ambil TaskRepository via Hilt untuk resolusi deep-link (report_id → task_id).
+    // Hanya dipakai saat pertama kali app dibuka via tap notifikasi.
+    val taskRepository: TaskRepository = hiltViewModel<DeepLinkHelperViewModel>().taskRepository
+
+    // Handle deep-link dari tap notifikasi (saat app background/killed).
+    // MainActivity menyimpan report_id dari intent extras ke deepLinkReportId StateFlow.
+    // Kita consume sekali, resolve ke task assignment ID, lalu navigasi ke detail tugas.
+    LaunchedEffect(Unit) {
+        val activity = context as? MainActivity ?: return@LaunchedEffect
+        val reportId = activity.consumeDeepLinkReportId() ?: return@LaunchedEffect
+
+        scope.launch {
+            taskRepository.getTasks()
+                .onSuccess { tasks ->
+                    val task = tasks.firstOrNull { it.reportId == reportId }
+                    if (task != null) {
+                        navController.navigate(Routes.taskDetail(task.id)) {
+                            launchSingleTop = true
+                        }
+                    } else {
+                        android.widget.Toast.makeText(context, "Tugas tidak ditemukan atau sudah selesai", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .onFailure {
+                    android.widget.Toast.makeText(context, "Gagal memuat tugas. Periksa koneksi Anda.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -129,7 +167,11 @@ fun AppNavGraph(startDestination: String) {
                 )
             }
 
-            composable(Routes.NOTIFICATIONS) { NotificationScreen() }
+            composable(Routes.NOTIFICATIONS) {
+                NotificationScreen(
+                    onNavigateToTask = { id -> navController.navigate(Routes.taskDetail(id)) },
+                )
+            }
 
             composable(Routes.PROFILE) {
                 ProfileScreen(

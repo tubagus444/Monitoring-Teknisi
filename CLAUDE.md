@@ -533,25 +533,23 @@ Perilaku `onMessageReceived` berbeda tergantung state app — ini bawaan FCM, ti
 
 | State App | `onMessageReceived` dipanggil? | Yang terjadi |
 |---|---|---|
-| **Foreground** | ✅ Ya | App tampilkan notif sendiri via `NotificationManager` (baca `title`/`body`) |
-| **Background / killed** | ❌ Tidak | Sistem tampilkan notif otomatis dari blok `notification` |
+| **Foreground** | ✅ Ya | App tampilkan notif sendiri via `NotificationManager` (baca `title`/`body` + `data["related_id"]` untuk deep-link) |
+| **Background / killed** | ❌ Tidak | Sistem tampilkan notif otomatis dari blok `notification`; tap → `MainActivity` baca `intent.extras` untuk deep-link |
 
-**Aturan implementasi (baseline):**
-- Tap notif cukup membuka app di halaman awal (Daftar Tugas). **Tidak ada navigasi ke tugas
-  spesifik** — ini disengaja (lihat catatan deep-link di bawah).
+**Deep-link dari notifikasi (sudah diimplementasi):**
+- Backend mengirim blok `data` (`type`, `related_id`) bersama blok `notification` di FCM payload.
+- **Foreground**: `MonitoringFirebaseService` baca `remoteMessage.data["related_id"]`, bangun
+  `PendingIntent` dengan extra `EXTRA_RELATED_ID`. Tap notifikasi → `MainActivity` → navigasi
+  ke detail tugas.
+- **Background/killed**: Sistem menampilkan notif otomatis dari blok `notification`. Tap →
+  `MainActivity.onCreate` baca `intent.extras["fcm_related_id"]` → simpan di `deepLinkReportId`
+  StateFlow → `AppNavGraph` consume dan navigasi ke detail tugas.
+- **Dalam layar Notifikasi**: Klik notifikasi dengan `relatedId` → `NotificationViewModel.openNotification()`
+  resolve `report_id` → `task_id` via `TaskRepository.getTasks()` → emit `NavigateToTask` event
+  → navigasi ke `Tasks/{id}`.
+- `related_id` dari backend adalah **report_id**, bukan **task assignment id**. Resolusi
+  `report_id → task_id` dilakukan di klien via filter `tasks.firstOrNull { it.reportId == reportId }`.
 - Daftar notifikasi lengkap tetap bisa dilihat kapan saja di layar Notifikasi (`GET /api/notifications`).
-- Yang wajib jalan: notif **muncul** saat ada tugas baru. Itu sudah memenuhi kebutuhan inti.
-
-> ### (Opsional, fase akhir) Deep-link dari notifikasi
-> Fitur "tap notif → buka langsung Detail Tugas" sengaja **ditunda** agar tidak menambah
-> risiko bug sebelum fitur inti stabil. **Jangan dikerjakan** kecuali semua layar inti + GPS +
-> alur status sudah berfungsi penuh. Kalau nanti mau diaktifkan, perlu DUA perubahan:
-> 1. **Backend**: tambah `->withData(['report_id' => ..., 'type' => 'task_assigned'])` di
->    `NotificationObserver` (perlu desain dari mana `report_id` diambil — tabel `notifications`
->    saat ini hanya simpan `user_id, title, body, is_read`).
-> 2. **Android**: baca `report_id` (FCM `data` selalu string → parse ke Int), navigasi ke
->    `tasks/{report_id}`. Foreground ambil dari `remoteMessage.data`; background ambil dari
->    `intent.extras` di launcher Activity.
 
 ## DataStore — UserPreferences
 

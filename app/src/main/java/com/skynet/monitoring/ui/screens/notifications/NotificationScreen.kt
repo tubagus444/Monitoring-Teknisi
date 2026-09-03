@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,12 +45,27 @@ import com.skynet.monitoring.util.UiState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationScreen(
+    onNavigateToTask: (Int) -> Unit = {},
     viewModel: NotificationViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     val unreadCount = (uiState as? UiState.Success)?.data?.count { !it.isRead } ?: 0
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Konsumsi event navigasi sekali-pakai
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is NotificationEvent.NavigateToTask -> onNavigateToTask(event.taskId)
+                is NotificationEvent.ShowToast -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -87,7 +103,7 @@ fun NotificationScreen(
                         items(state.data, key = { it.id }) { item ->
                             NotificationCard(
                                 item = item,
-                                onClick = { if (!item.isRead) viewModel.markRead(item.id) },
+                                onClick = { viewModel.openNotification(item.id) },
                             )
                         }
                     }

@@ -23,12 +23,15 @@ import javax.inject.Inject
 /**
  * Penerima pesan FCM.
  *
- * - [onMessageReceived] hanya dipanggil saat app **foreground** (pesan notification-only).
+ * - [onMessageReceived] hanya dipanggil saat app **foreground** (pesan notification+data).
  *   Saat background/killed, sistem menampilkan notif otomatis dari blok `notification` —
- *   service ini tidak dipanggil. Maka di sini kita tampilkan notif manual via NotificationManager.
+ *   service ini tidak dipanggil. Deep-link dari background ditangani via `intent.extras`
+ *   di [MainActivity].
  * - [onNewToken] dipanggil saat token perangkat berubah → kirim ulang ke backend bila sudah login.
  *
- * Deep-link sengaja TIDAK dikerjakan (sesuai CLAUDE.md): tap notif cukup membuka app di halaman awal.
+ * Backend kini menyertakan blok `data` (`type`, `related_id`) untuk deep-link.
+ * Saat foreground, kita baca `data` dan bangun `PendingIntent` dengan extras agar
+ * tap notifikasi membuka detail tugas terkait.
  */
 @AndroidEntryPoint
 class MonitoringFirebaseService : FirebaseMessagingService() {
@@ -38,10 +41,14 @@ class MonitoringFirebaseService : FirebaseMessagingService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(message: RemoteMessage) {
-        // Backend mengirim notification-only; ambil title/body dari blok notification.
+        // Backend mengirim notification+data; ambil title/body dari blok notification.
         val title = message.notification?.title ?: "Notifikasi Baru"
         val body = message.notification?.body ?: ""
-        showNotification(title, body)
+
+        // Deep-link: baca related_id dari blok data (selalu string di FCM → parse ke Int).
+        val relatedId = message.data["related_id"]?.toIntOrNull()
+
+        showNotification(title, body, relatedId)
     }
 
     override fun onNewToken(token: String) {
@@ -54,14 +61,21 @@ class MonitoringFirebaseService : FirebaseMessagingService() {
         }
     }
 
-    private fun showNotification(title: String, body: String) {
-        // Tap → buka MainActivity di halaman awal (Daftar Tugas). Tanpa deep-link.
+    private fun showNotification(title: String, body: String, relatedId: Int?) {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            // Sertakan related_id agar MainActivity bisa menavigasi ke tugas terkait.
+            if (relatedId != null) {
+                putExtra(EXTRA_RELATED_ID, relatedId)
+            }
         }
+
+        // requestCode unik per notifikasi agar PendingIntent dengan extras berbeda
+        // tidak saling menimpa (FLAG_UPDATE_CURRENT menimpa extras yang sama).
+        val requestCode = nextNotificationId()
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            requestCode,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
@@ -76,8 +90,17 @@ class MonitoringFirebaseService : FirebaseMessagingService() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
-        // notify() no-op diam-diam bila POST_NOTIFICATIONS belum diberi (Android 13+) — aman.
-        NotificationManagerCompat.from(this).notify(nextNotificationId(), notification)
+        // Cek permission Android 13+ agar Lint tidak error (walau notify() aman jika ditolak).
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.app.ActivityCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.POST_NOTIFICATIONS,
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+        }
+        NotificationManagerCompat.from(this).notify(requestCode, notification)
     }
 
     override fun onDestroy() {
@@ -86,6 +109,9 @@ class MonitoringFirebaseService : FirebaseMessagingService() {
     }
 
     companion object {
+        /** Key intent extra untuk report_id dari notifikasi FCM. */
+        const val EXTRA_RELATED_ID = "fcm_related_id"
+
         private val notificationCounter = AtomicInteger(2000)
 
         /** ID unik agar tiap notif tampil terpisah (dimulai dari 2000 agar tak bentrok GPS=1001). */

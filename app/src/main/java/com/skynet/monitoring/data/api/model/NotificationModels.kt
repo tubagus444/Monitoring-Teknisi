@@ -6,6 +6,8 @@ data class NotificationItem(
     @SerializedName("id") val id: Int,
     @SerializedName("title") val title: String,
     @SerializedName("body") val body: String,
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("related_id") val relatedId: Int? = null,
     @SerializedName("is_read") val isRead: Boolean,
     @SerializedName("created_at") val createdAt: String?,
 )
