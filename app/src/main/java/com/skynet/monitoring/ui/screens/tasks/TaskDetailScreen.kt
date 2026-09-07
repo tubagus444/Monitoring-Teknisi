@@ -342,6 +342,7 @@ private fun CustomerContactCard(task: Task, modifier: Modifier = Modifier) {
             )
 
             task.customer?.let { InfoRow(label = "Nama", value = it) }
+            task.customerCode?.let { InfoRow(label = "Kode Pelanggan", value = it) }
             task.ipAddress?.let { InfoRow(label = "IP Address", value = it) }
             task.subscriptionPackage?.let { InfoRow(label = "Paket Langganan", value = it) }
 

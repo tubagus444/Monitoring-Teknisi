@@ -26,6 +26,7 @@ data class Task(
     @SerializedName("category") val category: String? = null,
     @SerializedName("headline") val headline: String? = null,
     @SerializedName("phone") val phone: String? = null,
+    @SerializedName("customer_code") val customerCode: String? = null,
     @SerializedName("ip_address") val ipAddress: String? = null,
     @SerializedName("subscription_package") val subscriptionPackage: String? = null,
     @SerializedName("house_photos") val housePhotos: List<String> = emptyList(),
