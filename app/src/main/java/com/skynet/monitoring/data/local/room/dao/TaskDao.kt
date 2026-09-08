@@ -33,6 +33,12 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE status != 'selesai'")
     suspend fun clearActiveTasks()
 
+    @Query("DELETE FROM tasks WHERE id NOT IN (:historyIds) AND status = 'selesai'")
+    suspend fun deleteNotInHistory(historyIds: List<Int>)
+
+    @Query("DELETE FROM tasks WHERE status = 'selesai'")
+    suspend fun clearHistoryTasks()
+
     @Query("DELETE FROM tasks WHERE id NOT IN (:activeIds)")
     suspend fun deleteNotIn(activeIds: List<Int>)
 

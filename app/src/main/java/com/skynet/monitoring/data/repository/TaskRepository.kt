@@ -143,6 +143,12 @@ class TaskRepositoryImpl @Inject constructor(
             }
         }
         taskDao.insertTasks(merged)
+        
+        if (incomingTasks.isNotEmpty()) {
+            taskDao.deleteNotInHistory(incomingTasks.map { it.id })
+        } else {
+            taskDao.clearHistoryTasks()
+        }
     }
 
     private fun shouldFallbackToCache(error: Throwable): Boolean {
