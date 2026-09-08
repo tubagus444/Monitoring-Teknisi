@@ -54,4 +54,20 @@ class TaskListViewModelTest {
         assertEquals(UiState.Success(listOf(task())), vm.uiState.value)
         assertEquals(false, vm.isRefreshing.value)
     }
+
+    @Test
+    fun `syncEvents memicu refresh otomatis`() = runTest(mainDispatcherRule.dispatcher) {
+        val notifier = com.skynet.monitoring.util.TaskSyncNotifier()
+        coEvery { taskRepository.getTasks() } returns Result.success(listOf(task()))
+        val vm = TaskListViewModel(taskRepository, notifier)
+        advanceUntilIdle()
+        assertEquals(UiState.Success(listOf(task())), vm.uiState.value)
+
+        val newTask = task(id = 2)
+        coEvery { taskRepository.getTasks() } returns Result.success(listOf(task(), newTask))
+        notifier.notifyTaskUpdate()
+        advanceUntilIdle()
+
+        assertEquals(UiState.Success(listOf(task(), newTask)), vm.uiState.value)
+    }
 }

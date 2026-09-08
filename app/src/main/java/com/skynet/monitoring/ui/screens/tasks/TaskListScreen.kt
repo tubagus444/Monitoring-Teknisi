@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,8 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -92,13 +93,34 @@ fun TaskListScreen(
         ) {
             when (val state = uiState) {
                 is UiState.Loading -> LoadingView()
-                is UiState.Error -> ErrorView(state.message, onRetry = viewModel::load)
+                is UiState.Error -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillParentMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ErrorView(state.message, onRetry = viewModel::load)
+                            }
+                        }
+                    }
+                }
                 is UiState.Success -> {
                     if (state.data.isEmpty()) {
-                        EmptyView(
-                            "Belum ada tugas aktif",
-                            icon = Icons.Filled.TaskAlt,
-                        )
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillParentMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    EmptyView(
+                                        message = "Belum ada tugas aktif",
+                                        icon = Icons.Filled.TaskAlt,
+                                        onRetry = viewModel::refresh,
+                                    )
+                                }
+                            }
+                        }
                     } else {
                         // Tugas yang sedang dikerjakan (mungkin sedang "dikecilkan") — tampilkan
                         // banner pengingat + pintasan lanjut ke layar Working di paling atas.
@@ -167,7 +189,7 @@ private fun ActiveRepairBanner(task: Task, onClick: () -> Unit) {
                 )
             }
             Icon(
-                imageVector = Icons.Filled.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )

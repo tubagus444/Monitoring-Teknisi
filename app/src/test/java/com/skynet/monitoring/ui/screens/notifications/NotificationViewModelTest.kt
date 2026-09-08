@@ -107,4 +107,19 @@ class NotificationViewModelTest {
         coVerify(exactly = 1) { notificationRepository.markRead(1) }
         coVerify(exactly = 0) { taskRepository.getTasks() }
     }
+
+    @Test
+    fun `syncEvents memicu refresh notifikasi otomatis`() = runTest(mainDispatcherRule.dispatcher) {
+        val notifier = com.skynet.monitoring.util.TaskSyncNotifier()
+        coEvery { notificationRepository.getNotifications() } returns Result.success(listOf(item(1, false)))
+        val vm = NotificationViewModel(notificationRepository, taskRepository, notifier)
+        advanceUntilIdle()
+
+        coEvery { notificationRepository.getNotifications() } returns Result.success(listOf(item(1, false), item(2, false)))
+        notifier.notifyTaskUpdate()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value as UiState.Success
+        assertEquals(2, state.data.size)
+    }
 }

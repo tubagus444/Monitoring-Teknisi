@@ -72,10 +72,11 @@ fun EmptyView(
     message: String,
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Filled.Inbox,
+    onRetry: (() -> Unit)? = null,
+    retryText: String = "Muat Ulang",
 ) {
     Column(
         modifier = modifier
-            .fillMaxSize()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -94,5 +95,10 @@ fun EmptyView(
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (onRetry != null) {
+            Button(onClick = onRetry, modifier = Modifier.padding(top = 16.dp)) {
+                Text(retryText)
+            }
+        }
     }
 }

@@ -10,6 +10,7 @@ import com.skynet.monitoring.MainActivity
 import com.skynet.monitoring.R
 import com.skynet.monitoring.data.repository.AuthRepository
 import com.skynet.monitoring.util.NotificationChannels
+import com.skynet.monitoring.util.TaskSyncNotifier
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,7 @@ import javax.inject.Inject
 class MonitoringFirebaseService : FirebaseMessagingService() {
 
     @Inject lateinit var authRepository: AuthRepository
+    @Inject lateinit var taskSyncNotifier: TaskSyncNotifier
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -49,6 +51,10 @@ class MonitoringFirebaseService : FirebaseMessagingService() {
         val relatedId = message.data["related_id"]?.toIntOrNull()
 
         showNotification(title, body, relatedId)
+
+        // Beritahu observer di aplikasi (mis. TaskListViewModel) agar data ter-refresh seketika
+        // tanpa teknisi harus berpindah tab/halaman.
+        taskSyncNotifier.notifyTaskUpdate()
     }
 
     override fun onNewToken(token: String) {

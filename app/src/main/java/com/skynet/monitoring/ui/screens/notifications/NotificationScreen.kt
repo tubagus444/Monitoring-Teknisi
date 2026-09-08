@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -85,18 +86,42 @@ fun NotificationScreen(
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = viewModel::refresh,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
         ) {
             when (val state = uiState) {
                 is UiState.Loading -> LoadingView()
-                is UiState.Error -> ErrorView(message = state.message, onRetry = viewModel::load)
+                is UiState.Error -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillParentMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                ErrorView(message = state.message, onRetry = viewModel::load)
+                            }
+                        }
+                    }
+                }
                 is UiState.Success -> if (state.data.isEmpty()) {
-                    EmptyView(
-                        "Belum ada notifikasi",
-                        icon = Icons.Filled.NotificationsNone,
-                    )
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillParentMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                EmptyView(
+                                    message = "Belum ada notifikasi",
+                                    icon = Icons.Filled.NotificationsNone,
+                                    onRetry = viewModel::refresh,
+                                )
+                            }
+                        }
+                    }
                 } else {
                     LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {

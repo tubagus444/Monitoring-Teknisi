@@ -5,6 +5,7 @@ import com.skynet.monitoring.data.api.model.NotificationItem
 import com.skynet.monitoring.data.repository.NotificationRepository
 import com.skynet.monitoring.data.repository.TaskRepository
 import com.skynet.monitoring.ui.BaseViewModel
+import com.skynet.monitoring.util.TaskSyncNotifier
 import com.skynet.monitoring.util.UiState
 import com.skynet.monitoring.util.collectResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +27,7 @@ sealed interface NotificationEvent {
 class NotificationViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val taskRepository: TaskRepository,
+    private val taskSyncNotifier: TaskSyncNotifier = TaskSyncNotifier(),
 ) : BaseViewModel<NotificationEvent>() {
 
     private val _uiState = MutableStateFlow<UiState<List<NotificationItem>>>(UiState.Loading)
@@ -36,6 +38,11 @@ class NotificationViewModel @Inject constructor(
 
     init {
         load()
+        viewModelScope.launch {
+            taskSyncNotifier.syncEvents.collect {
+                refresh()
+            }
+        }
     }
 
     fun load() = _uiState.collectResult(viewModelScope) { notificationRepository.getNotifications() }
