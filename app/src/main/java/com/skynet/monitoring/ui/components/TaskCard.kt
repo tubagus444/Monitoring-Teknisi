@@ -42,12 +42,14 @@ fun TaskCard(task: Task, onClick: () -> Unit) {
 
             CategoryBadge(task.category, modifier = Modifier.padding(top = 8.dp))
 
-            Text(
-                text = task.damageType,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 4.dp),
-            )
+            if (!task.damageType.isNullOrBlank()) {
+                Text(
+                    text = task.damageType,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,

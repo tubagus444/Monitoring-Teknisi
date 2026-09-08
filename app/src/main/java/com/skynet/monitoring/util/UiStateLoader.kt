@@ -21,11 +21,19 @@ fun <T> MutableStateFlow<UiState<T>>.collectResult(
 ) {
     scope.launch {
         if (refreshing != null) refreshing.value = true else value = UiState.Loading
-        block()
-            .onSuccess { value = UiState.Success(it) }
-            .onFailure {
+        runCatching { block() }
+            .onSuccess { result ->
+                result
+                    .onSuccess { value = UiState.Success(it) }
+                    .onFailure {
+                        if (value !is UiState.Success) {
+                            value = UiState.Error(it.message ?: "Terjadi kesalahan")
+                        }
+                    }
+            }
+            .onFailure { error ->
                 if (value !is UiState.Success) {
-                    value = UiState.Error(it.message ?: "Terjadi kesalahan")
+                    value = UiState.Error(error.message ?: "Terjadi kesalahan")
                 }
             }
         refreshing?.value = false

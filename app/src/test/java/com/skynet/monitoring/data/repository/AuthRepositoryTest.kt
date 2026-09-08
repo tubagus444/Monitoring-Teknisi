@@ -6,9 +6,12 @@ import com.skynet.monitoring.data.api.model.LoginResponse
 import com.skynet.monitoring.data.api.model.MessageResponse
 import com.skynet.monitoring.data.api.model.User
 import com.skynet.monitoring.data.local.UserPreferences
+import com.skynet.monitoring.data.local.room.AppDatabase
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -21,7 +24,8 @@ class AuthRepositoryTest {
 
     private val api = mockk<ApiService>()
     private val prefs = mockk<UserPreferences>(relaxed = true)
-    private val repo = AuthRepositoryImpl(api, prefs, Gson())
+    private val db = mockk<AppDatabase>(relaxed = true)
+    private val repo = AuthRepositoryImpl(api, prefs, db, Gson())
 
     private val user = User(id = 1, name = "Budi", email = "budi@skynet.id", role = "teknisi")
 
@@ -56,5 +60,6 @@ class AuthRepositoryTest {
         val result = repo.logout()
         assertTrue(result.isSuccess)
         coVerify(exactly = 1) { prefs.clear() }
+        verify(exactly = 1) { db.clearAllTables() }
     }
 }

@@ -6,8 +6,11 @@ import com.skynet.monitoring.data.api.model.FcmTokenRequest
 import com.skynet.monitoring.data.api.model.LoginRequest
 import com.skynet.monitoring.data.api.model.User
 import com.skynet.monitoring.data.local.UserPreferences
+import com.skynet.monitoring.data.local.room.AppDatabase
 import com.skynet.monitoring.util.safeApiCall
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 interface AuthRepository {
@@ -20,13 +23,14 @@ interface AuthRepository {
     /** Kirim/perbarui FCM token ke backend. */
     suspend fun updateFcmToken(token: String): Result<Unit>
 
-    /** Logout: hapus token server (best-effort) lalu SELALU bersihkan sesi lokal. */
+    /** Logout: hapus token server (best-effort) lalu SELALU bersihkan sesi lokal dan cache. */
     suspend fun logout(): Result<Unit>
 }
 
 class AuthRepositoryImpl @Inject constructor(
     private val api: ApiService,
     private val prefs: UserPreferences,
+    private val db: AppDatabase,
     private val gson: Gson,
 ) : AuthRepository {
 
@@ -45,6 +49,9 @@ class AuthRepositoryImpl @Inject constructor(
         // Hapus token di server bila bisa; abaikan kegagalan (mis. offline).
         runCatching { api.logout() }
         prefs.clear()
+        withContext(Dispatchers.IO) {
+            runCatching { db.clearAllTables() }
+        }
         return Result.success(Unit)
     }
 }

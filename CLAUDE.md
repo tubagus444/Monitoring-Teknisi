@@ -25,6 +25,7 @@ Sisa pekerjaan: pengujian end-to-end di perangkat dengan backend Laravel berjala
 | Arsitektur | MVVM (ViewModel + StateFlow) |
 | Networking | Retrofit 2 + OkHttp 3 |
 | Dependency Injection | Hilt |
+| Database Lokal (Cache) | Room (SQLite) |
 | Penyimpanan Token | DataStore Preferences |
 | Push Notifikasi | Firebase Cloud Messaging (FCM) |
 | GPS | FusedLocationProviderClient (Foreground Service) |
@@ -564,6 +565,18 @@ val USER_KEY  = stringPreferencesKey("user_json")  // JSON dari object User logi
 - Baca sebagai `Flow` agar reaktif; collect di ViewModel
 - Hapus keduanya saat logout
 
+## Room Database — Cache Lokal Offline
+
+Aplikasi menyimpan cache lokal untuk tugas (`tasks`) dan notifikasi (`notifications`) di database SQLite lokal via Room (`monitoring_db`):
+
+- **Entitas:** `TaskEntity` (termasuk TypeConverter Gson untuk `work_logs`, `house_photos`, `repair_photos`) dan `NotificationEntity`.
+- **DAOs:** `TaskDao` (`syncTasks`, `syncTaskDetail`, `getTasks`, `getTaskById`) dan `NotificationDao` (`syncNotifications`, `getNotifications`, `markAsRead`).
+- **Strategi Cache (Network-First with Local Fallback):**
+  - Pemanggilan API sukses → simpan/sinkronkan ke Room secara otomatis.
+  - Pemanggilan API gagal karena offline / jaringan terputus (`IOException` / status 5xx) → ambil data terakhir dari cache Room.
+  - Error 4xx (mis. 401 Sesi habis, 404 Data tidak ditemukan) **tidak** mengambil cache agar state error bisnis backend tetap diteruskan ke UI.
+- **Pembersihan Cache saat Logout:** `AppDatabase.clearAllTables()` dipanggil otomatis di `AuthRepositoryImpl.logout()`.
+
 ## OkHttp AuthInterceptor
 
 File: `data/api/AuthInterceptor.kt` (kelas terpisah, di-inject ke OkHttp lewat `NetworkModule`).
@@ -632,8 +645,8 @@ Unit test (host JVM, di `app/src/test/`) memakai JUnit4 + `kotlinx-coroutines-te
 - Uji ViewModel: `runTest(mainDispatcherRule.dispatcher) { … }` agar scheduler dibagi dengan
   `viewModelScope`; uji `events` dengan turbine; panggil `vm.viewModelScope.cancel()` di `finally`
   bila VM punya coroutine menetap (timer / `stateIn`), supaya `runTest` selesai bersih.
-- Cakupan saat ini: semua repository (termasuk catatan `description` & unggah foto bukti/rumah) +
-  `safeApiCall` + `DateUtils` + `WorkDuration` + semua ViewModel (56 test).
+- Cakupan saat ini: semua repository (termasuk cache offline Room, catatan `description`, & unggah foto bukti/rumah) +
+  `safeApiCall` + `DateUtils` + `WorkDuration` + semua ViewModel (68 test).
 - **Titik buta:** `ImageCompressor` TIDAK punya unit test — bergantung pada `BitmapFactory`/`ExifInterface`
   framework Android yang tak tersedia di JVM, jadi tak bisa diuji di `src/test/`. Test repository yang
   menyentuh upload foto **me-mock** `ImageCompressor`, sehingga logika decode/kompres asli tak pernah

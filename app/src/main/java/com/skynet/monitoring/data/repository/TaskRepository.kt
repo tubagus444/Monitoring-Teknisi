@@ -7,6 +7,9 @@ import com.skynet.monitoring.data.api.model.PhotoUploadResponse
 import com.skynet.monitoring.data.api.model.StatusAction
 import com.skynet.monitoring.data.api.model.Task
 import com.skynet.monitoring.data.api.model.UpdateStatusRequest
+import com.skynet.monitoring.data.local.room.dao.TaskDao
+import com.skynet.monitoring.data.local.room.entity.TaskEntity
+import com.skynet.monitoring.data.local.room.entity.toEntity
 import com.skynet.monitoring.util.ApiException
 import com.skynet.monitoring.util.ImageCompressor
 import com.skynet.monitoring.util.safeApiCall
@@ -37,20 +40,92 @@ interface TaskRepository {
 
 class TaskRepositoryImpl @Inject constructor(
     private val api: ApiService,
+    private val taskDao: TaskDao,
     private val gson: Gson,
     private val imageCompressor: ImageCompressor,
 ) : TaskRepository {
 
-    override suspend fun getTasks(): Result<List<Task>> =
-        safeApiCall(gson) { api.getTasks() }.map { it.data }
+    override suspend fun getTasks(): Result<List<Task>> {
+        val networkResult = safeApiCall(gson) { api.getTasks() }.map { it.data }
+        return networkResult.fold(
+            onSuccess = { tasks ->
+                runCatching { syncTasksToCache(tasks.map { it.toEntity() }) }
+                Result.success(tasks)
+            },
+            onFailure = { error ->
+                if (!shouldFallbackToCache(error)) return Result.failure(error)
 
-    override suspend fun getTaskDetail(id: Int): Result<Task> =
-        safeApiCall(gson) { api.getTaskDetail(id) }.map { it.data }
+                val cached = runCatching { taskDao.getTasks().map { it.toDomain() } }.getOrNull().orEmpty()
+                if (cached.isNotEmpty()) {
+                    Result.success(cached)
+                } else {
+                    Result.failure(error)
+                }
+            }
+        )
+    }
+
+    override suspend fun getTaskDetail(id: Int): Result<Task> {
+        val networkResult = safeApiCall(gson) { api.getTaskDetail(id) }.map { it.data }
+        return networkResult.fold(
+            onSuccess = { task ->
+                runCatching { taskDao.insertTask(task.toEntity()) }
+                Result.success(task)
+            },
+            onFailure = { error ->
+                if (!shouldFallbackToCache(error)) return Result.failure(error)
+
+                val cached = runCatching { taskDao.getTaskById(id)?.toDomain() }.getOrNull()
+                if (cached != null) {
+                    Result.success(cached)
+                } else {
+                    Result.failure(error)
+                }
+            }
+        )
+    }
+
+    private suspend fun syncTasksToCache(incomingTasks: List<TaskEntity>) {
+        val currentCached = taskDao.getTasks().associateBy { it.id }
+        val merged = incomingTasks.map { incoming ->
+            val existing = currentCached[incoming.id]
+            if (existing != null) {
+                incoming.copy(
+                    workLogs = incoming.workLogs ?: existing.workLogs,
+                    housePhotos = if (incoming.housePhotos.isNotEmpty()) incoming.housePhotos else existing.housePhotos,
+                    repairPhotos = if (incoming.repairPhotos.isNotEmpty()) incoming.repairPhotos else existing.repairPhotos,
+                )
+            } else {
+                incoming
+            }
+        }
+        taskDao.insertTasks(merged)
+        if (incomingTasks.isNotEmpty()) {
+            taskDao.deleteNotIn(incomingTasks.map { it.id })
+        } else {
+            taskDao.clearAll()
+        }
+    }
+
+    private fun shouldFallbackToCache(error: Throwable): Boolean {
+        val apiException = error as? ApiException ?: return true
+        val code = apiException.code ?: return true // null = error jaringan (IOException)
+        return code >= 500 // server error 5xx bisa fallback ke cache
+    }
 
     override suspend fun updateStatus(id: Int, action: StatusAction, description: String?): Result<String> =
         safeApiCall(gson) {
             api.updateTaskStatus(id, UpdateStatusRequest(action.apiValue, description?.takeIf { it.isNotBlank() }))
-        }.map { it.status ?: action.apiValue }
+        }.map { response ->
+            val newStatus = response.status ?: action.apiValue
+            runCatching {
+                val cached = taskDao.getTaskById(id)
+                if (cached != null) {
+                    taskDao.insertTask(cached.copy(status = newStatus))
+                }
+            }
+            newStatus
+        }
 
     override suspend fun uploadRepairPhoto(id: Int, uri: Uri, caption: String?): Result<Unit> =
         uploadPhoto(uri, caption) { part, cap -> api.uploadRepairPhoto(id, part, cap) }

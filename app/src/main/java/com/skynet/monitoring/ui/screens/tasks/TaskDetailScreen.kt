@@ -160,7 +160,7 @@ private fun DetailContent(
                 CategoryBadge(task.category, modifier = Modifier.padding(top = 8.dp))
 
                 val isCustomer = TaskCategory.from(task.category) == TaskCategory.PELANGGAN
-                InfoRow(label = "Jenis Kerusakan", value = task.damageType)
+                InfoRow(label = "Jenis Kerusakan", value = task.damageType ?: "-")
                 InfoRow(
                     label = if (isCustomer) "Alamat" else "Lokasi/Area",
                     value = task.address,

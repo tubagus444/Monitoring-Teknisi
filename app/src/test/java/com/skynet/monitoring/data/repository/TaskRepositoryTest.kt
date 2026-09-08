@@ -11,8 +11,11 @@ import com.skynet.monitoring.data.api.model.TaskDetailResponse
 import com.skynet.monitoring.data.api.model.TaskListResponse
 import com.skynet.monitoring.data.api.model.UpdateStatusRequest
 import com.skynet.monitoring.data.api.model.UpdateStatusResponse
+import com.skynet.monitoring.data.local.room.dao.TaskDao
+import com.skynet.monitoring.data.local.room.entity.toEntity
 import com.skynet.monitoring.util.ImageCompressor
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
@@ -25,12 +28,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import retrofit2.Response
+import java.io.IOException
 
 class TaskRepositoryTest {
 
     private val api = mockk<ApiService>()
+    private val taskDao = mockk<TaskDao>(relaxed = true)
     private val imageCompressor = mockk<ImageCompressor>()
-    private val repo = TaskRepositoryImpl(api, Gson(), imageCompressor)
+    private val repo = TaskRepositoryImpl(api, taskDao, Gson(), imageCompressor)
 
     private fun task(id: Int = 1) = Task(
         id = id,
@@ -44,15 +49,59 @@ class TaskRepositoryTest {
     )
 
     @Test
-    fun `getTasks membuka pembungkus data`() = runTest {
+    fun `getTasks membuka pembungkus data dan menyimpan ke cache`() = runTest {
         coEvery { api.getTasks() } returns Response.success(TaskListResponse(listOf(task())))
-        assertEquals(listOf(task()), repo.getTasks().getOrNull())
+        val result = repo.getTasks()
+        assertEquals(listOf(task()), result.getOrNull())
+        coVerify(exactly = 1) { taskDao.insertTasks(listOf(task().toEntity())) }
     }
 
     @Test
-    fun `getTaskDetail membuka pembungkus data`() = runTest {
+    fun `getTasks fallback ke cache lokal saat offline atau jaringan error`() = runTest {
+        coEvery { api.getTasks() } throws IOException("No internet")
+        coEvery { taskDao.getTasks() } returns listOf(task().toEntity())
+
+        val result = repo.getTasks()
+        assertTrue(result.isSuccess)
+        assertEquals(listOf(task()), result.getOrNull())
+    }
+
+    @Test
+    fun `getTasks gagal jika jaringan error dan cache lokal kosong`() = runTest {
+        coEvery { api.getTasks() } throws IOException("No internet")
+        coEvery { taskDao.getTasks() } returns emptyList()
+
+        val result = repo.getTasks()
+        assertTrue(result.isFailure)
+        assertEquals("Periksa koneksi internet Anda", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun `getTasks error 401 tidak membaca cache lokal`() = runTest {
+        val body = """{"message":"Unauthenticated"}""".toResponseBody("application/json".toMediaType())
+        coEvery { api.getTasks() } returns Response.error(401, body)
+
+        val result = repo.getTasks()
+        assertTrue(result.isFailure)
+        coVerify(exactly = 0) { taskDao.getTasks() }
+    }
+
+    @Test
+    fun `getTaskDetail membuka pembungkus data dan menyimpan ke cache`() = runTest {
         coEvery { api.getTaskDetail(1) } returns Response.success(TaskDetailResponse(task()))
-        assertEquals(task(), repo.getTaskDetail(1).getOrNull())
+        val result = repo.getTaskDetail(1)
+        assertEquals(task(), result.getOrNull())
+        coVerify(exactly = 1) { taskDao.insertTask(task().toEntity()) }
+    }
+
+    @Test
+    fun `getTaskDetail fallback ke cache lokal saat offline`() = runTest {
+        coEvery { api.getTaskDetail(1) } throws IOException("No internet")
+        coEvery { taskDao.getTaskById(1) } returns task().toEntity()
+
+        val result = repo.getTaskDetail(1)
+        assertTrue(result.isSuccess)
+        assertEquals(task(), result.getOrNull())
     }
 
     @Test

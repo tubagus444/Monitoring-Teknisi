@@ -100,6 +100,11 @@ dependencies {
     // DataStore Preferences (token + user)
     implementation(libs.androidx.datastore.preferences)
 
+    // Room Database (Offline Cache)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     // Firebase Cloud Messaging
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
