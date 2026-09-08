@@ -22,6 +22,7 @@ import javax.inject.Inject
 
 interface TaskRepository {
     suspend fun getTasks(): Result<List<Task>>
+    suspend fun getTaskHistory(): Result<List<Task>>
     suspend fun getTaskDetail(id: Int): Result<Task>
 
     /**
@@ -55,7 +56,27 @@ class TaskRepositoryImpl @Inject constructor(
             onFailure = { error ->
                 if (!shouldFallbackToCache(error)) return Result.failure(error)
 
-                val cached = runCatching { taskDao.getTasks().map { it.toDomain() } }.getOrNull().orEmpty()
+                val cached = runCatching { taskDao.getActiveTasks().map { it.toDomain() } }.getOrNull().orEmpty()
+                if (cached.isNotEmpty()) {
+                    Result.success(cached)
+                } else {
+                    Result.failure(error)
+                }
+            }
+        )
+    }
+
+    override suspend fun getTaskHistory(): Result<List<Task>> {
+        val networkResult = safeApiCall(gson) { api.getTasks("completed") }.map { it.data }
+        return networkResult.fold(
+            onSuccess = { tasks ->
+                runCatching { syncHistoryToCache(tasks.map { it.toEntity() }) }
+                Result.success(tasks)
+            },
+            onFailure = { error ->
+                if (!shouldFallbackToCache(error)) return Result.failure(error)
+
+                val cached = runCatching { taskDao.getHistoryTasks().map { it.toDomain() } }.getOrNull().orEmpty()
                 if (cached.isNotEmpty()) {
                     Result.success(cached)
                 } else {
@@ -86,7 +107,7 @@ class TaskRepositoryImpl @Inject constructor(
     }
 
     private suspend fun syncTasksToCache(incomingTasks: List<TaskEntity>) {
-        val currentCached = taskDao.getTasks().associateBy { it.id }
+        val currentCached = taskDao.getActiveTasks().associateBy { it.id }
         val merged = incomingTasks.map { incoming ->
             val existing = currentCached[incoming.id]
             if (existing != null) {
@@ -101,10 +122,27 @@ class TaskRepositoryImpl @Inject constructor(
         }
         taskDao.insertTasks(merged)
         if (incomingTasks.isNotEmpty()) {
-            taskDao.deleteNotIn(incomingTasks.map { it.id })
+            taskDao.deleteNotInActive(incomingTasks.map { it.id })
         } else {
-            taskDao.clearAll()
+            taskDao.clearActiveTasks()
         }
+    }
+
+    private suspend fun syncHistoryToCache(incomingTasks: List<TaskEntity>) {
+        val currentCached = taskDao.getHistoryTasks().associateBy { it.id }
+        val merged = incomingTasks.map { incoming ->
+            val existing = currentCached[incoming.id]
+            if (existing != null) {
+                incoming.copy(
+                    workLogs = incoming.workLogs ?: existing.workLogs,
+                    housePhotos = if (incoming.housePhotos.isNotEmpty()) incoming.housePhotos else existing.housePhotos,
+                    repairPhotos = if (incoming.repairPhotos.isNotEmpty()) incoming.repairPhotos else existing.repairPhotos,
+                )
+            } else {
+                incoming
+            }
+        }
+        taskDao.insertTasks(merged)
     }
 
     private fun shouldFallbackToCache(error: Throwable): Boolean {

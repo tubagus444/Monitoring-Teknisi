@@ -133,6 +133,7 @@ private fun DetailContent(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val isDone = TaskStatus.from(task.status) == TaskStatus.DONE
 
     Column(
         modifier = modifier
@@ -167,6 +168,9 @@ private fun DetailContent(
                 )
                 InfoRow(label = "Catatan", value = task.notes ?: "-")
                 InfoRow(label = "Ditugaskan", value = DateUtils.format(task.assignedAt))
+                if (isDone && !task.completedAt.isNullOrBlank()) {
+                    InfoRow(label = "Selesai", value = DateUtils.format(task.completedAt))
+                }
 
                 OutlinedButton(
                     onClick = {
@@ -194,14 +198,16 @@ private fun DetailContent(
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
-            AddPhotoButton(
-                text = "Tambah Foto Rumah",
-                enabled = !isUploading,
-                onImagePicked = onUploadHousePhoto,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-            )
+            if (!isDone) {
+                AddPhotoButton(
+                    text = "Tambah Foto Rumah",
+                    enabled = !isUploading,
+                    onImagePicked = onUploadHousePhoto,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            }
         }
 
         // --- Galeri foto bukti pekerjaan + unggah (semua kategori) ---
@@ -220,14 +226,16 @@ private fun DetailContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        AddPhotoButton(
-            text = "Tambah Foto Bukti",
-            enabled = !isUploading,
-            onImagePicked = onUploadRepairPhoto,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp),
-        )
+        if (!isDone) {
+            AddPhotoButton(
+                text = "Tambah Foto Bukti",
+                enabled = !isUploading,
+                onImagePicked = onUploadRepairPhoto,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+            )
+        }
 
         // --- Timeline work logs ---
         if (!task.workLogs.isNullOrEmpty()) {

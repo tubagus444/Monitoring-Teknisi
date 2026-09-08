@@ -30,6 +30,7 @@ data class TaskEntity(
     @ColumnInfo(name = "subscription_package") val subscriptionPackage: String? = null,
     @ColumnInfo(name = "house_photos") val housePhotos: List<String> = emptyList(),
     @ColumnInfo(name = "repair_photos") val repairPhotos: List<RepairPhoto> = emptyList(),
+    @ColumnInfo(name = "completed_at") val completedAt: String? = null,
 ) {
     fun toDomain(): Task = Task(
         id = id,
@@ -49,6 +50,7 @@ data class TaskEntity(
         subscriptionPackage = subscriptionPackage,
         housePhotos = housePhotos,
         repairPhotos = repairPhotos,
+        completedAt = completedAt,
     )
 }
 
@@ -70,4 +72,5 @@ fun Task.toEntity(): TaskEntity = TaskEntity(
     subscriptionPackage = subscriptionPackage,
     housePhotos = housePhotos,
     repairPhotos = repairPhotos,
+    completedAt = completedAt,
 )

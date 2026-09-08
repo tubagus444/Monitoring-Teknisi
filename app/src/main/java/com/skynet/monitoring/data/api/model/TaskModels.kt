@@ -31,6 +31,7 @@ data class Task(
     @SerializedName("subscription_package") val subscriptionPackage: String? = null,
     @SerializedName("house_photos") val housePhotos: List<String> = emptyList(),
     @SerializedName("repair_photos") val repairPhotos: List<RepairPhoto> = emptyList(),
+    @SerializedName("completed_at") val completedAt: String? = null,
 ) {
     /** Judul tampilan aman-null: [headline] bila ada, jatuh ke [customer], lalu placeholder. */
     val displayTitle: String

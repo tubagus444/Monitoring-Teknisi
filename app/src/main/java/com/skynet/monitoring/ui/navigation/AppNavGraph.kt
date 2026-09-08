@@ -1,14 +1,20 @@
 package com.skynet.monitoring.ui.navigation
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,6 +37,7 @@ import com.skynet.monitoring.ui.screens.auth.LoginScreen
 import com.skynet.monitoring.ui.screens.notifications.NotificationScreen
 import com.skynet.monitoring.ui.screens.profile.ProfileScreen
 import com.skynet.monitoring.ui.screens.tasks.TaskDetailScreen
+import com.skynet.monitoring.ui.screens.tasks.TaskHistoryScreen
 import com.skynet.monitoring.ui.screens.tasks.TaskListScreen
 import com.skynet.monitoring.ui.screens.working.WorkingScreen
 import kotlinx.coroutines.launch
@@ -42,6 +50,7 @@ private data class BottomNavItem(
 
 private val bottomNavItems = listOf(
     BottomNavItem(Routes.TASKS, "Tugas", Icons.AutoMirrored.Filled.List),
+    BottomNavItem(Routes.HISTORY, "Riwayat", Icons.Filled.History),
     BottomNavItem(Routes.NOTIFICATIONS, "Notifikasi", Icons.Filled.Notifications),
     BottomNavItem(Routes.PROFILE, "Profil", Icons.Filled.Person),
 )
@@ -85,24 +94,36 @@ fun AppNavGraph(startDestination: String) {
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
-                    bottomNavItems.forEach { item ->
-                        NavigationBarItem(
-                            selected = currentRoute == item.route,
-                            onClick = {
-                                if (currentRoute != item.route) {
-                                    navController.navigate(item.route) {
-                                        popUpTo(Routes.TASKS) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
+                Surface(
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(
+                        width = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                    ),
+                ) {
+                    NavigationBar(
+                        tonalElevation = 0.dp,
+                    ) {
+                        bottomNavItems.forEach { item ->
+                            NavigationBarItem(
+                                selected = currentRoute == item.route,
+                                onClick = {
+                                    if (currentRoute != item.route) {
+                                        navController.navigate(item.route) {
+                                            popUpTo(Routes.TASKS) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
-                                }
-                            },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
-                        )
+                                },
+                                icon = { Icon(item.icon, contentDescription = item.label) },
+                                label = { Text(item.label) },
+                            )
+                        }
                     }
                 }
             }
@@ -111,7 +132,10 @@ fun AppNavGraph(startDestination: String) {
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
         ) {
             composable(Routes.LOGIN) {
                 LoginScreen(
@@ -128,6 +152,12 @@ fun AppNavGraph(startDestination: String) {
                 TaskListScreen(
                     onTaskClick = { id -> navController.navigate(Routes.taskDetail(id)) },
                     onResumeWork = { id -> navController.navigate(Routes.working(id)) },
+                )
+            }
+
+            composable(Routes.HISTORY) {
+                TaskHistoryScreen(
+                    onTaskClick = { id -> navController.navigate(Routes.taskDetail(id)) },
                 )
             }
 

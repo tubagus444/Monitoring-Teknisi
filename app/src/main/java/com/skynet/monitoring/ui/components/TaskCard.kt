@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.skynet.monitoring.data.api.model.Task
+import com.skynet.monitoring.util.DateUtils
 
 /** Kartu satu tugas di daftar. */
 @Composable
@@ -66,6 +69,27 @@ fun TaskCard(task: Task, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            if (!task.completedAt.isNullOrBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .size(16.dp),
+                        tint = MaterialTheme.colorScheme.secondary,
+                    )
+                    Text(
+                        text = "Selesai: ${DateUtils.format(task.completedAt)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
             }
         }
     }

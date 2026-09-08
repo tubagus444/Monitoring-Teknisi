@@ -14,7 +14,7 @@ import com.skynet.monitoring.data.local.room.entity.TaskEntity
         TaskEntity::class,
         NotificationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

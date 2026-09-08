@@ -21,6 +21,7 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /**
  * Semua endpoint backend. Memakai Response<T> agar repository bisa membaca HTTP status
@@ -41,7 +42,7 @@ interface ApiService {
 
     // ---- Tugas ----
     @GET("tasks")
-    suspend fun getTasks(): Response<TaskListResponse>
+    suspend fun getTasks(@Query("status") status: String? = null): Response<TaskListResponse>
 
     @GET("tasks/{id}")
     suspend fun getTaskDetail(@Path("id") id: Int): Response<TaskDetailResponse>

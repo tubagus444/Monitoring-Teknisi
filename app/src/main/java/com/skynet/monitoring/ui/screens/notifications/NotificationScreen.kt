@@ -1,5 +1,6 @@
 package com.skynet.monitoring.ui.screens.notifications
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,8 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +35,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -82,6 +87,7 @@ fun NotificationScreen(
                 },
             )
         },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -120,17 +126,40 @@ fun NotificationScreen(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(state.data, key = { it.id }) { item ->
-                            NotificationCard(
-                                item = item,
-                                onClick = { viewModel.openNotification(item.id) },
-                            )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = 16.dp,
+                                top = 16.dp,
+                                end = 16.dp,
+                                bottom = 28.dp,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(state.data, key = { it.id }) { item ->
+                                NotificationCard(
+                                    item = item,
+                                    onClick = { viewModel.openNotification(item.id) },
+                                )
+                            }
                         }
+
+                        // Efek pudar halus (Fading Edge) di batas bawah daftar agar kartu tidak terpotong tajam
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(28.dp)
+                                .align(Alignment.BottomCenter)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.background,
+                                        ),
+                                    )
+                                ),
+                        )
                     }
                 }
             }

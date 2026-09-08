@@ -8,6 +8,7 @@ object Routes {
     const val WORKING = "tasks/{id}/working"
     const val NOTIFICATIONS = "notifications"
     const val PROFILE = "profile"
+    const val HISTORY = "history"
 
     /** Argumen path bersama untuk detail & working. */
     const val ARG_ID = "id"

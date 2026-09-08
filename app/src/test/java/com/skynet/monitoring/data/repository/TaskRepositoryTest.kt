@@ -59,7 +59,7 @@ class TaskRepositoryTest {
     @Test
     fun `getTasks fallback ke cache lokal saat offline atau jaringan error`() = runTest {
         coEvery { api.getTasks() } throws IOException("No internet")
-        coEvery { taskDao.getTasks() } returns listOf(task().toEntity())
+        coEvery { taskDao.getActiveTasks() } returns listOf(task().toEntity())
 
         val result = repo.getTasks()
         assertTrue(result.isSuccess)
@@ -69,7 +69,7 @@ class TaskRepositoryTest {
     @Test
     fun `getTasks gagal jika jaringan error dan cache lokal kosong`() = runTest {
         coEvery { api.getTasks() } throws IOException("No internet")
-        coEvery { taskDao.getTasks() } returns emptyList()
+        coEvery { taskDao.getActiveTasks() } returns emptyList()
 
         val result = repo.getTasks()
         assertTrue(result.isFailure)
@@ -83,7 +83,37 @@ class TaskRepositoryTest {
 
         val result = repo.getTasks()
         assertTrue(result.isFailure)
-        coVerify(exactly = 0) { taskDao.getTasks() }
+        coVerify(exactly = 0) { taskDao.getActiveTasks() }
+    }
+
+    @Test
+    fun `getTaskHistory membuka pembungkus data dan menyimpan ke cache`() = runTest {
+        val completedTask = task(2).copy(status = "selesai", completedAt = "2026-06-01T10:00:00+07:00")
+        coEvery { api.getTasks("completed") } returns Response.success(TaskListResponse(listOf(completedTask)))
+        val result = repo.getTaskHistory()
+        assertEquals(listOf(completedTask), result.getOrNull())
+        coVerify(exactly = 1) { taskDao.insertTasks(listOf(completedTask.toEntity())) }
+    }
+
+    @Test
+    fun `getTaskHistory fallback ke cache lokal saat offline atau jaringan error`() = runTest {
+        val completedTask = task(2).copy(status = "selesai", completedAt = "2026-06-01T10:00:00+07:00")
+        coEvery { api.getTasks("completed") } throws IOException("No internet")
+        coEvery { taskDao.getHistoryTasks() } returns listOf(completedTask.toEntity())
+
+        val result = repo.getTaskHistory()
+        assertTrue(result.isSuccess)
+        assertEquals(listOf(completedTask), result.getOrNull())
+    }
+
+    @Test
+    fun `getTaskHistory gagal jika jaringan error dan cache lokal kosong`() = runTest {
+        coEvery { api.getTasks("completed") } throws IOException("No internet")
+        coEvery { taskDao.getHistoryTasks() } returns emptyList()
+
+        val result = repo.getTaskHistory()
+        assertTrue(result.isFailure)
+        assertEquals("Periksa koneksi internet Anda", result.exceptionOrNull()?.message)
     }
 
     @Test
