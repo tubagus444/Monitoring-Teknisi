@@ -90,11 +90,11 @@ fun LoginScreen(
                     value = viewModel.serverUrl,
                     onValueChange = viewModel::onServerUrlChange,
                     label = { Text("Alamat Server (debug)") },
-                    placeholder = { Text("192.168.0.105:8000") },
+                    placeholder = { Text("skynet-monitoring.tech (default)") },
                     singleLine = true,
                     enabled = !isLoading,
                     supportingText = {
-                        Text("Kosongkan untuk pakai bawaan. Contoh: 192.168.0.105:8000 atau https://api.skynet.id")
+                        Text("Kosongkan untuk pakai default VPS (skynet-monitoring.tech), atau isi IP LAN jika tes lokal.")
                     },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Uri,

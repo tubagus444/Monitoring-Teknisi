@@ -30,6 +30,14 @@ class NormalizeServerUrlTest {
     }
 
     @Test
+    fun `domain publik tanpa skema dianggap https`() {
+        val url = normalizeServerUrl("skynet-monitoring.tech")!!
+        assertEquals("https", url.scheme)
+        assertEquals("skynet-monitoring.tech", url.host)
+        assertEquals(443, url.port)
+    }
+
+    @Test
     fun `spasi di tepi dipangkas`() {
         val url = normalizeServerUrl("  http://10.0.2.2:8000  ")!!
         assertEquals("10.0.2.2", url.host)

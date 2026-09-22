@@ -39,8 +39,10 @@ class ServerUrlInterceptor @Inject constructor(
 
 /**
  * Normalkan input penguji jadi [HttpUrl]; null bila kosong/invalid.
- * Menerima "192.168.0.105:8000", "http://192.168.0.105:8000", atau "https://api.skynet.id".
- * Tanpa skema → default `http://`.
+ * Menerima "192.168.0.105:8000", "skynet-monitoring.tech", atau "https://api.skynet.id".
+ * Tanpa skema:
+ * - IP lokal/LAN/localhost -> default `http://`
+ * - Domain publik -> default `https://`
  */
 fun normalizeServerUrl(input: String?): HttpUrl? {
     val trimmed = input?.trim().orEmpty()
@@ -48,7 +50,12 @@ fun normalizeServerUrl(input: String?): HttpUrl? {
     val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
         trimmed
     } else {
-        "http://$trimmed"
+        val isLocal = trimmed.startsWith("192.168.") ||
+            trimmed.startsWith("10.") ||
+            trimmed.startsWith("172.") ||
+            trimmed.startsWith("127.0.0.1") ||
+            trimmed.startsWith("localhost")
+        if (isLocal) "http://$trimmed" else "https://$trimmed"
     }
     return withScheme.toHttpUrlOrNull()
 }

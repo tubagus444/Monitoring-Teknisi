@@ -73,15 +73,13 @@ Proyek memakai AGP 9.2.1 + Kotlin 2.2.10 + built-in Kotlin. Dua syarat wajib:
 
 ### Base URL API
 
-Backend Laravel berjalan di `http://localhost:8000` (Laragon, Windows). Android tidak bisa
-akses `localhost` langsung. `BASE_URL` **tidak hardcoded di Kotlin** — disuntik per product
-flavor via `buildConfigField` di `app/build.gradle.kts`, lalu dikonsumsi di `NetworkModule`
-sebagai `BuildConfig.BASE_URL`:
+Backend Laravel di-hosting di VPS dengan domain resmi `https://skynet-monitoring.tech/api/`. `BASE_URL` **tidak hardcoded di Kotlin** — disuntik per product flavor / build variant via `buildConfigField` di `app/build.gradle.kts`, lalu dikonsumsi di `NetworkModule` sebagai `BuildConfig.BASE_URL`:
 
-| Flavor | BASE_URL | Sumber |
+| Flavor / Variant | BASE_URL | Karakteristik |
 |---|---|---|
-| `emulator` | `http://10.0.2.2:8000/api/` | hardcoded di `build.gradle.kts` |
-| `device` | IP LAN laptop (mis. `http://192.168.x.x:8000/api/`) | `local.properties` key `deviceBaseUrl` |
+| `deviceRelease` | `https://skynet-monitoring.tech/api/` | **Produksi:** Layar login bersih (tanpa input debug), direct HTTPS, signed debug key agar bisa langsung di-install di HP fisik. |
+| `deviceDebug` | `https://skynet-monitoring.tech/api/` | **Pengembangan:** Default VPS (tanpa perlu ketik IP). Input "Alamat Server" tetap ada untuk fleksibilitas jika ingin uji coba backend lokal di LAN. |
+| `emulatorDebug` | `http://10.0.2.2:8000/api/` | Untuk emulator Android terhadap Laragon lokal di Windows. |
 
 ```kotlin
 // NetworkModule.kt — konsumsi nilai dari flavor
@@ -89,9 +87,8 @@ Retrofit.Builder().baseUrl(BuildConfig.BASE_URL)
 ```
 
 > **Override alamat server saat tes (DEBUG saja).** Agar tak perlu rebuild tiap ganti IP/jaringan,
-> layar Login menampilkan field **"Alamat Server"** (mis. `192.168.0.105:8000` atau
-> `https://api.skynet.id`). Nilainya disimpan di DataStore (key `server_url`) dan
-> `ServerUrlInterceptor` menimpa **skema/host/port** tiap request (path `/api/...` dari `BASE_URL`
+> layar Login pada build debug menampilkan field **"Alamat Server"** (default: kosong = otomatis pakai `skynet-monitoring.tech`).
+> Nilainya disimpan di DataStore (key `server_url`) dan `ServerUrlInterceptor` menimpa **skema/host/port** tiap request (path `/api/...` dari `BASE_URL`
 > tetap). Berlaku langsung tanpa restart; kosongkan field → kembali ke `BuildConfig.BASE_URL`.
 > Field + interceptor **hanya aktif di build debug** (`BuildConfig.DEBUG`) — build release selalu
 > pakai `BASE_URL` resmi & tak bisa ditimpa. `UserPreferences.clear()` (logout) sengaja **tidak**

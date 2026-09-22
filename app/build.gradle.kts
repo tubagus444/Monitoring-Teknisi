@@ -8,13 +8,13 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
-// IP backend untuk HP fisik dibaca dari local.properties (tidak ikut commit), key `deviceBaseUrl`.
-// Saat pindah WiFi cukup ganti nilai di local.properties — tak perlu sentuh kode.
-// Fallback ke IP LAN saat ini bila key belum diisi.
+// URL backend untuk HP fisik dibaca dari local.properties (tidak ikut commit), key `deviceBaseUrl`.
+// Default mengarah ke backend produksi di VPS (https://skynet-monitoring.tech/api/).
+// Bisa di-override di local.properties bila perlu uji coba lokal.
 val deviceBaseUrl: String = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
-}.getProperty("deviceBaseUrl") ?: "http://192.168.0.105:8000/api/"
+}.getProperty("deviceBaseUrl") ?: "https://skynet-monitoring.tech/api/"
 
 android {
     namespace = "com.skynet.monitoring"
@@ -34,7 +34,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Dua varian environment. Pilih di Android Studio: "Build Variants" → emulatorDebug / deviceDebug.
+    // Dua varian environment. Pilih di Android Studio: "Build Variants" → emulatorDebug / deviceDebug / deviceRelease.
     // applicationId TIDAK diubah per-flavor agar google-services.json (Firebase) tetap cocok.
     flavorDimensions += "env"
     productFlavors {
@@ -45,7 +45,7 @@ android {
         }
         create("device") {
             dimension = "env"
-            // IP LAN laptop, diisi via local.properties (key: deviceBaseUrl).
+            // Default backend VPS resmi, bisa di-override via local.properties (key: deviceBaseUrl).
             buildConfigField("String", "BASE_URL", "\"$deviceBaseUrl\"")
         }
     }
@@ -53,6 +53,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Gunakan debug signingConfig agar APK release bisa langsung di-install & dijalankan di HP fisik via Android Studio.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

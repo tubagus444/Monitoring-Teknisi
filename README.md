@@ -44,29 +44,32 @@ Dikerjakan sebagai studi kasus skripsi dengan metode pengembangan **RAD**.
 Unduh `google-services.json` dari Firebase Console (project yang sama dengan backend), lalu
 letakkan di folder `app/`. **File ini tidak di-commit** (sudah ada di `.gitignore`).
 
-### 2. Base URL backend (product flavors)
-Backend Laravel berjalan di `http://localhost:8000`. Karena Android tidak bisa mengakses
-`localhost` perangkat host, `BASE_URL` disuntik per **product flavor**:
+### 2. Base URL backend & Build Variants
+Backend Laravel sudah di-hosting di VPS dengan domain HTTPS resmi: `https://skynet-monitoring.tech/api/`.
 
-| Flavor | BASE_URL | Sumber |
+| Build Variant | BASE_URL | Karakteristik |
 |---|---|---|
-| `emulator` | `http://10.0.2.2:8000/api/` | hardcoded di `app/build.gradle.kts` |
-| `device` | IP LAN laptop (mis. `http://192.168.x.x:8000/api/`) | `local.properties`, key `deviceBaseUrl` |
+| `deviceRelease` | `https://skynet-monitoring.tech/api/` | **Produksi teknisi:** Form Login bersih (tanpa input debug IP), koneksi HTTPS aman, signed debug key agar bisa langsung jalan di HP fisik. |
+| `deviceDebug` | `https://skynet-monitoring.tech/api/` | **Pengembangan:** Default mengarah ke VPS (tanpa perlu ketik IP), namun input "Alamat Server" tetap tersedia jika sewaktu-waktu ingin tes backend lokal di LAN. |
+| `emulatorDebug` | `http://10.0.2.2:8000/api/` | Untuk emulator Android terhadap Laravel lokal host machine. |
 
-Untuk uji di HP fisik, tambahkan baris ini ke `local.properties` (tidak ikut commit):
+Untuk override alamat backend di varian `device` (misal uji coba dengan Laragon di WiFi lokal), tambahkan atau ubah di `local.properties`:
 ```properties
 deviceBaseUrl=http://192.168.x.x:8000/api/
 ```
 
 ## Build & Run
 
-> Windows (PowerShell): gunakan `.\gradlew.bat`. Pilih **Build Variants** di Android Studio
-> untuk berpindah flavor `emulator` / `device`.
+> Windows (PowerShell): gunakan `.\gradlew.bat`. Pilih **Build Variants** di panel samping Android Studio:
+> - `deviceRelease`: untuk aplikasi rilis teknisi siap pakai
+> - `deviceDebug`: untuk mode debug
+> - `emulatorDebug`: untuk emulator
 
 ```bash
-# Build debug APK
+# Build APK
+./gradlew assembleDeviceRelease      # APK rilis teknisi (tampilan bersih)
+./gradlew assembleDeviceDebug        # APK debug HP fisik
 ./gradlew assembleEmulatorDebug      # untuk emulator
-./gradlew assembleDeviceDebug        # untuk HP fisik
 
 # Verifikasi cepat kompilasi + Hilt (~20 dtk)
 ./gradlew compileEmulatorDebugKotlin --console=plain
